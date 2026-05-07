@@ -45,17 +45,62 @@
     .search-container input{flex:1;border:none;outline:none;font-size:0.95rem;background:transparent}
     .search-container button{color:var(--text-light);font-size:1rem;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%}
 
-    .hero-banner{position:relative;width:100%;height:180px;overflow:hidden;background:#1a1a1a}
+    /* ===== HERO BANNER WITH REAL FOOD IMAGES ===== */
+    .hero-banner{position:relative;width:100%;height:200px;overflow:hidden;background:#1a1a1a}
     .hero-slider{position:relative;width:100%;height:100%}
     .hero-slide{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 0.5s ease}
     .hero-slide.active{opacity:1}
-    .hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,rgba(0,0,0,0.1) 60%,rgba(0,0,0,0.3) 100%)}
-    .hero-content{position:absolute;bottom:20px;left:16px;right:16px;color:#fff;text-align:center}
-    .hero-content h2{font-size:1.25rem;font-weight:700;margin-bottom:4px;text-shadow:0 2px 8px rgba(0,0,0,0.4)}
-    .hero-content p{font-size:0.85rem;opacity:0.9;text-shadow:0 1px 4px rgba(0,0,0,0.3)}
+    .hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.2) 50%,rgba(0,0,0,0.4) 100%)}
+    .hero-content{position:absolute;bottom:16px;left:16px;right:16px;color:#fff}
+    .hero-content h2{font-size:1.1rem;font-weight:700;margin-bottom:3px;text-shadow:0 2px 8px rgba(0,0,0,0.5)}
+    .hero-content p{font-size:0.8rem;opacity:0.95;text-shadow:0 1px 4px rgba(0,0,0,0.4)}
+    .hero-badge{position:absolute;top:12px;right:12px;background:linear-gradient(135deg,#ff9800,#e65100);color:#fff;padding:4px 12px;border-radius:50px;font-size:0.7rem;font-weight:700;z-index:5;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
     .hero-dots{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:5}
     .hero-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.35);cursor:pointer;transition:all 0.2s}
     .hero-dot.active{background:#fff;width:20px;border-radius:4px}
+
+    /* ===== OFFERS STRIP BELOW HERO ===== */
+    .offers-strip{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:10px 12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .offers-strip::-webkit-scrollbar{display:none}
+    .offers-track{display:flex;gap:10px}
+    .offer-pill{flex-shrink:0;padding:6px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:50px;color:#fff;font-size:0.75rem;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap}
+    .offer-pill.hot{background:linear-gradient(135deg,#ff9800,#e65100);border-color:transparent;box-shadow:0 2px 8px rgba(230,81,0,0.3)}
+    .offer-pill i{font-size:0.7rem}
+
+    /* ===== FLOATING GIFT BOX ICON ===== */
+    .gift-float-btn{position:fixed;bottom:90px;right:16px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#ff9800,#e65100);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.5rem;z-index:998;box-shadow:0 4px 20px rgba(230,81,0,0.4);cursor:pointer;transition:all 0.3s;border:3px solid #fff;animation:gift-float 3s ease-in-out infinite}
+    .gift-float-btn:active{transform:scale(0.9)}
+    .gift-float-btn .gift-badge{position:absolute;top:-4px;right:-4px;width:20px;height:20px;background:#dc3545;color:#fff;border-radius:50%;font-size:0.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+    @keyframes gift-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+    /* ===== GIFT BOX SECTION (Initially Hidden) ===== */
+    .gift-box-wrapper{display:none;animation:fadeIn 0.4s ease}
+    .gift-box-wrapper.show{display:block}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+    .gift-box-section{background:linear-gradient(135deg,#fff3e0 0%,#ffe0b2 100%);border-radius:var(--radius);padding:16px;margin:12px;border:2px solid #ff9800;box-shadow:0 4px 15px rgba(255,152,0,0.2)}
+    .gift-box-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .gift-box-header i{font-size:1.5rem;color:#e65100}
+    .gift-box-header h3{flex:1;font-size:1.1rem;color:#e65100}
+    .gift-progress{background:#e65100;color:#fff;padding:4px 12px;border-radius:50px;font-size:0.8rem;font-weight:700}
+    .gift-box-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
+    .gift-box-day{aspect-ratio:1;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:all 0.2s;border:2px solid transparent;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+    .gift-box-day:active{transform:scale(0.95)}
+    .gift-box-day.locked{background:#f5f5f5;color:#bbb;cursor:not-allowed}
+    .gift-box-day.active{background:linear-gradient(135deg,#ff9800,#e65100);color:#fff;border-color:#e65100;animation:pulse-gift 2s infinite}
+    .gift-box-day.opened{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff}
+    .gift-box-day.missed{background:#ffebee;color:#c62828;opacity:0.6}
+    @keyframes pulse-gift{0%,100%{transform:scale(1);box-shadow:0 2px 8px rgba(230,81,0,0.3)}50%{transform:scale(1.05);box-shadow:0 4px 20px rgba(230,81,0,0.4)}}
+    .gift-box-icon{font-size:1.3rem}
+    .gift-day-num{font-size:0.65rem;font-weight:600}
+    .gift-progress-bar{height:8px;background:#e0e0e0;border-radius:50px;overflow:hidden;margin-bottom:8px}
+    .gift-progress-fill{height:100%;background:linear-gradient(90deg,#ff9800,#e65100);border-radius:50px;transition:width 0.5s ease}
+    .gift-status-text{text-align:center;font-size:0.85rem;color:#666;font-weight:500}
+    .coupon-section{margin-top:14px;padding-top:14px;border-top:2px dashed #ff9800}
+    .coupon-banner{background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;padding:12px;border-radius:10px;display:flex;align-items:center;gap:10px;font-size:0.9rem;font-weight:600;margin-bottom:10px}
+    .coupon-banner i{font-size:1.3rem}
+    .btn-claim-coupon{width:100%;padding:14px;background:linear-gradient(135deg,#e65100,#bf360c);color:#fff;border-radius:50px;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 15px rgba(230,81,0,0.3);animation:pulse-gift 2s infinite;border:none}
+    .btn-claim-coupon:active{transform:scale(0.97)}
 
     .category-section{position:sticky;top:var(--header-height);background:var(--bg);z-index:100;padding:8px 0;border-bottom:1px solid var(--border)}
     .category-container{display:flex;gap:6px;padding:0 12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -80,6 +125,8 @@
     .product-image{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#e8e8e8}
     .product-image img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.2s}
     .product-image img.loaded{opacity:1}
+    .product-image-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:3rem;background:linear-gradient(135deg,#fff3e0,#ffe0b2);z-index:1}
+    .product-image img.loaded + .product-image-fallback{display:none}
     .product-badge{position:absolute;top:8px;left:8px;background:var(--primary);color:#fff;padding:2px 8px;border-radius:50px;font-size:0.65rem;font-weight:600;text-transform:uppercase;z-index:2}
     .product-info{padding:12px;flex:1;display:flex;flex-direction:column}
     .product-name{font-size:1rem;font-weight:700;margin-bottom:3px}
@@ -146,6 +193,134 @@
     .mobile-menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;opacity:0;visibility:hidden;transition:opacity 0.2s,visibility 0.2s}
     .mobile-menu-overlay.open{opacity:1;visibility:visible}
 
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;opacity:0;visibility:hidden;transition:opacity 0.25s,visibility 0.25s}
+    .modal-overlay.open{opacity:1;visibility:visible}
+    .modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.92);background:#fff;border-radius:var(--radius);width:92%;max-width:420px;max-height:90dvh;z-index:2001;opacity:0;visibility:hidden;transition:all 0.25s;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+    .modal.open{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1)}
+    .modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);color:#fff;border-radius:var(--radius) var(--radius) 0 0}
+    .modal-header h3{display:flex;align-items:center;gap:8px;font-size:1.05rem}
+    .modal-close{color:#fff;font-size:1rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.15)}
+    .modal-close:active{background:rgba(255,255,255,0.3)}
+    .modal-body{padding:16px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+    .text-center{text-align:center}
+
+    .form-group{margin-bottom:14px}
+    .form-group label{display:flex;align-items:center;gap:6px;font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:6px}
+    .form-group label i{color:var(--primary);width:16px}
+    .form-group input,.form-group textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.95rem;font-family:inherit;outline:none;transition:border-color 0.2s;background:#fff}
+    .form-group input:focus,.form-group textarea:focus{border-color:var(--primary)}
+    .form-group textarea{resize:vertical;min-height:60px}
+
+    .payment-options{display:flex;gap:10px}
+    .payment-option{flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s;background:#fff}
+    .payment-option:has(input:checked){border-color:var(--primary);background:#fff3e0}
+    .payment-option input{position:absolute;opacity:0}
+    .payment-radio{width:20px;height:20px;border:2px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+    .payment-option:has(input:checked) .payment-radio{border-color:var(--primary);background:var(--primary)}
+    .payment-radio::after{content:'';width:8px;height:8px;background:#fff;border-radius:50%;opacity:0;transition:opacity 0.2s}
+    .payment-option:has(input:checked) .payment-radio::after{opacity:1}
+    .payment-option i{font-size:1.1rem;color:var(--primary)}
+    .payment-option span{font-weight:600;font-size:0.9rem}
+
+    .upi-app-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+    .upi-app-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;cursor:pointer;transition:all 0.2s}
+    .upi-app-btn:active{transform:scale(0.96)}
+    .upi-app-btn.selected{border-color:var(--primary);background:#fff3e0;box-shadow:0 2px 8px rgba(230,81,0,0.15)}
+    .upi-app-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f5f5f5}
+    .upi-app-icon img{width:100%;height:100%;object-fit:contain}
+    .fallback-icon{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1rem}
+    .upi-app-name{font-size:0.75rem;font-weight:600;color:var(--text)}
+
+    .qr-container{text-align:center;padding:16px;background:#f8f9fa;border-radius:var(--radius-sm);border:1.5px dashed var(--border)}
+    .qr-header{margin-bottom:10px}
+    .qr-title{font-size:1rem;font-weight:700;color:var(--text)}
+    .qr-subtitle{font-size:0.8rem;color:var(--text-light)}
+    .qr-image-wrap{position:relative;display:inline-block;margin-bottom:10px}
+    .qr-image{width:180px;height:180px;border-radius:8px;object-fit:contain;background:#fff;padding:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+    .qr-amount-badge{position:absolute;top:-8px;right:-8px;background:var(--primary);color:#fff;padding:4px 10px;border-radius:50px;font-size:0.8rem;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+    .qr-upi-id{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0;font-size:0.9rem}
+    .qr-upi-id strong{color:var(--primary)}
+    #btn-copy-upi{width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.85rem}
+    #btn-copy-upi:active{transform:scale(0.9)}
+    .qr-note{font-size:0.8rem;color:var(--text-light);margin-top:8px}
+
+    .payment-status{text-align:center;padding:10px;background:#f5f5f5;border-radius:var(--radius-sm);margin:10px 0;font-size:0.85rem;font-weight:600}
+    .status-paid{color:var(--secondary);background:#e8f5e9}
+    .status-pending{color:#f57c00;background:#fff3e0}
+    .status-cash{color:var(--text-light)}
+
+    .btn-submit-order{width:100%;padding:14px;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);color:#fff;border-radius:50px;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;box-shadow:0 4px 15px rgba(230,81,0,0.25)}
+    .btn-submit-order:disabled{opacity:0.5;cursor:not-allowed}
+    .btn-submit-order:active:not(:disabled){transform:scale(0.98)}
+
+    .success-icon{width:70px;height:70px;background:linear-gradient(135deg,var(--secondary),#1b5e20);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+    .success-icon i{font-size:2.5rem;color:#fff}
+    .success-modal h3{color:var(--secondary);margin-bottom:8px;font-size:1.3rem}
+    .success-modal p{margin-bottom:4px;color:var(--text-light)}
+    .success-note{font-size:0.85rem;color:var(--text-light);margin:8px 0 16px}
+    .btn-new-order,.btn-download-bill{width:100%;padding:12px;border-radius:50px;font-weight:700;font-size:0.95rem;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px}
+    .btn-new-order{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;box-shadow:0 3px 12px rgba(230,81,0,0.22)}
+    .btn-download-bill{background:#fff;color:var(--primary);border:2px solid var(--primary)}
+    .btn-new-order:active,.btn-download-bill:active{transform:scale(0.97)}
+
+    .history-item{padding:12px;background:#f8f9fa;border-radius:var(--radius-sm);margin-bottom:8px;border:1px solid var(--border)}
+    .history-item-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    .history-item-header h4{font-size:0.95rem;color:var(--text)}
+    .history-item-date{font-size:0.8rem;color:var(--text-light)}
+    .history-item-details{font-size:0.85rem;color:var(--text-light);margin-bottom:6px;line-height:1.4}
+    .history-item-total{font-size:0.9rem;font-weight:700;color:var(--primary)}
+    .empty-history{display:flex;flex-direction:column;align-items:center;padding:40px 20px;color:var(--text-light);text-align:center}
+    .empty-history i{font-size:3rem;margin-bottom:12px;opacity:0.3}
+    .empty-history p{font-weight:600;color:var(--text)}
+
+    .contact-info{display:flex;flex-direction:column;gap:8px}
+    .contact-item{display:flex;align-items:center;gap:12px;padding:14px;background:#f8f9fa;border-radius:var(--radius-sm);border:1px solid var(--border);transition:all 0.2s}
+    .contact-item:active{background:#fff3e0;border-color:var(--primary)}
+    .contact-item i{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+    .contact-item h4{font-size:0.95rem;margin-bottom:2px;color:var(--text)}
+    .contact-item p{font-size:0.85rem;color:var(--text-light)}
+
+    .gift-reward-modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+    .gift-reward-content{background:#fff;border-radius:var(--radius);padding:30px 24px;text-align:center;max-width:300px;width:90%;animation:pop-in 0.3s ease}
+    @keyframes pop-in{0%{transform:scale(0.5);opacity:0}100%{transform:scale(1);opacity:1}}
+    .gift-reward-icon{font-size:4rem;margin-bottom:10px;animation:bounce 1s infinite}
+    @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    .gift-reward-content h3{color:#e65100;margin-bottom:8px}
+    .gift-reward-text{font-size:1.1rem;font-weight:700;color:#2e7d32;margin-bottom:20px}
+    .btn-gift-ok{padding:12px 30px;background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border-radius:50px;font-weight:700;border:none}
+    .btn-gift-ok:active{transform:scale(0.95)}
+
+    .coupon-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10001;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+    .coupon-modal{background:#fff;border-radius:var(--radius) var(--radius) 0 0;width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column;animation:slide-up 0.3s ease}
+    @keyframes slide-up{0%{transform:translateY(100%)}100%{transform:translateY(0)}}
+    .coupon-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff}
+    .coupon-modal-header h3{display:flex;align-items:center;gap:8px;font-size:1.05rem}
+    .coupon-close{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.2);color:#fff;display:flex;align-items:center;justify-content:center;border:none}
+    .coupon-close:active{background:rgba(255,255,255,0.3)}
+    .coupon-modal-body{padding:16px;overflow-y:auto;flex:1}
+    .coupon-info{background:#fff3e0;border-radius:10px;padding:14px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start}
+    .coupon-info i{color:#e65100;font-size:1.2rem;margin-top:2px;flex-shrink:0}
+    .coupon-info p{font-size:0.9rem;color:#666;line-height:1.4}
+    .coupon-items-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    .coupon-item-card{background:#f8f9fa;border:2px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;transition:all 0.2s}
+    .coupon-item-card:active{transform:scale(0.97);border-color:var(--primary);background:#fff3e0}
+    .coupon-item-emoji{font-size:2.5rem;margin-bottom:6px}
+    .coupon-item-name{font-weight:600;font-size:0.85rem;margin-bottom:4px}
+    .coupon-item-price{color:var(--primary);font-weight:700;font-size:0.9rem}
+
+    .coupon-success-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10002;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+    .coupon-success-modal{background:#fff;border-radius:var(--radius);padding:30px 24px;text-align:center;max-width:320px;width:90%;animation:pop-in 0.3s ease}
+    .coupon-success-icon{width:70px;height:70px;background:linear-gradient(135deg,#4caf50,#2e7d32);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+    .coupon-success-icon i{font-size:2.5rem;color:#fff}
+    .coupon-success-modal h3{color:#2e7d32;margin-bottom:14px;font-size:1.3rem}
+    .coupon-code-box{background:linear-gradient(135deg,#fff3e0,#ffe0b2);border:2px dashed #e65100;border-radius:12px;padding:14px;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px}
+    .coupon-code{font-size:1.4rem;font-weight:800;color:#e65100;letter-spacing:2px}
+    .btn-copy-code{width:36px;height:36px;border-radius:50%;background:#e65100;color:#fff;display:flex;align-items:center;justify-content:center;border:none}
+    .btn-copy-code:active{transform:scale(0.9)}
+    .coupon-hint{font-size:0.85rem;color:#666;margin-bottom:20px}
+    .btn-coupon-done{padding:12px 32px;background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border-radius:50px;font-weight:700;font-size:1rem;border:none}
+    .btn-coupon-done:active{transform:scale(0.95)}
+
     .footer{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#fff;padding:28px 16px 16px;margin-top:30px}
     .footer-content{max-width:1200px;margin:0 auto;text-align:center}
     .footer-brand{margin-bottom:16px}
@@ -156,11 +331,11 @@
     .footer-links a:active{opacity:1;color:#ff9800}
     .footer-bottom{border-top:1px solid rgba(255,255,255,0.1);padding-top:14px;font-size:0.78rem;opacity:0.6}
 
-    @media(min-width:480px){.menu-container{grid-template-columns:repeat(2,1fr)}.hero-banner{height:200px}}
+    @media(min-width:480px){.menu-container{grid-template-columns:repeat(2,1fr)}.hero-banner{height:220px}}
     @media(min-width:640px){.header-top{padding:10px 16px}.hotel-title{font-size:1.1rem}.logo{width:52px;height:52px}}
-    @media(min-width:768px){.menu-container{grid-template-columns:repeat(3,1fr)}.hero-banner{height:220px}.hero-content h2{font-size:1.5rem}}
-    @media(min-width:1024px){.menu-container{grid-template-columns:repeat(4,1fr)}.hero-banner{height:260px}}
-    @media(min-width:1440px){.menu-container{grid-template-columns:repeat(5,1fr)}.hero-banner{height:300px}}
+    @media(min-width:768px){.menu-container{grid-template-columns:repeat(3,1fr)}.hero-banner{height:260px}.hero-content h2{font-size:1.3rem}}
+    @media(min-width:1024px){.menu-container{grid-template-columns:repeat(4,1fr)}.hero-banner{height:300px}}
+    @media(min-width:1440px){.menu-container{grid-template-columns:repeat(5,1fr)}.hero-banner{height:340px}}
     </style>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
@@ -176,6 +351,12 @@
     <div id="toast" class="toast">
         <i class="fas fa-check-circle"></i>
         <span id="toast-message">Item added!</span>
+    </div>
+
+    <!-- Floating Gift Box Button -->
+    <div class="gift-float-btn" id="gift-float-btn" title="Daily Gift Box">
+        <i class="fas fa-gift"></i>
+        <span class="gift-badge" id="gift-badge">1</span>
     </div>
 
     <header class="header" id="header">
@@ -227,11 +408,36 @@
         </div>
         <div class="mobile-menu-overlay" id="mobile-menu-overlay"></div>
 
+        <!-- HERO BANNER WITH REAL SOUTH INDIAN FOOD IMAGES -->
         <section class="hero-banner" id="hero-banner">
             <div class="hero-slider">
-                <div class="hero-slide active" style="background-image:url('https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=400&q=50&fm=webp')"><div class="hero-overlay"></div><div class="hero-content"><h2>Delicious South Indian Cuisine</h2><p>Authentic flavors, fresh ingredients</p></div></div>
-                <div class="hero-slide" style="background-image:url('https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&q=50&fm=webp')"><div class="hero-overlay"></div><div class="hero-content"><h2>Fresh & Tasty Meals</h2><p>Homestyle cooking at its best</p></div></div>
-                <div class="hero-slide" style="background-image:url('https://images.unsplash.com/photo-1600891964092-4316c288032e?w=400&q=50&fm=webp')"><div class="hero-overlay"></div><div class="hero-content"><h2>Order Now, Enjoy Later</h2><p>Quick service, great taste</p></div></div>
+                <!-- Slide 1: Tiffin Specials -->
+                <div class="hero-slide active" style="background-image:url('https://images.unsplash.com/photo-1630384060421-cb20aeb65535?w=800&q=80')">
+                    <div class="hero-overlay"></div>
+                    <span class="hero-badge">🔥 SPECIAL</span>
+                    <div class="hero-content">
+                        <h2>Authentic South Indian Tiffin</h2>
+                        <p>Crispy Dosas, Soft Idlys & Hot Vadas - From Rs.10</p>
+                    </div>
+                </div>
+                <!-- Slide 2: Biryani -->
+                <div class="hero-slide" style="background-image:url('https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=800&q=80')">
+                    <div class="hero-overlay"></div>
+                    <span class="hero-badge">⭐ BESTSELLER</span>
+                    <div class="hero-content">
+                        <h2>Aroma Filled Biryani</h2>
+                        <p>Chicken, Egg & Veg Biryani - Starting Rs.70</p>
+                    </div>
+                </div>
+                <!-- Slide 3: Meals -->
+                <div class="hero-slide" style="background-image:url('https://images.unsplash.com/photo-1546833998-877b37c2e5c4?w=800&q=80')">
+                    <div class="hero-overlay"></div>
+                    <span class="hero-badge">🍱 MEALS</span>
+                    <div class="hero-content">
+                        <h2>Wholesome South Indian Meals</h2>
+                        <p>Veg Rs.80 | Non-Veg Rs.120 | Fish Rs.140</p>
+                    </div>
+                </div>
             </div>
             <div class="hero-dots">
                 <span class="hero-dot active" data-slide="0"></span>
@@ -239,6 +445,23 @@
                 <span class="hero-dot" data-slide="2"></span>
             </div>
         </section>
+
+        <!-- OFFERS STRIP -->
+        <div class="offers-strip" id="offers-strip">
+            <div class="offers-track">
+                <div class="offer-pill hot"><i class="fas fa-fire"></i> 🎁 10-Day Gift Box Reward</div>
+                <div class="offer-pill"><i class="fas fa-percentage"></i> Free Delivery Above Rs.200</div>
+                <div class="offer-pill hot"><i class="fas fa-drumstick-bite"></i> Chicken Biryani Rs.90 Only</div>
+                <div class="offer-pill"><i class="fas fa-utensils"></i> Meals Combo Deals Available</div>
+                <div class="offer-pill"><i class="fas fa-clock"></i> Open 7AM - 10PM Daily</div>
+                <div class="offer-pill hot"><i class="fas fa-mobile-alt"></i> Order via WhatsApp</div>
+            </div>
+        </div>
+
+        <!-- GIFT BOX SECTION (Hidden by default, shown via floating button) -->
+        <div class="gift-box-wrapper" id="gift-box-wrapper">
+            <section class="gift-box-container" id="gift-box-container"></section>
+        </div>
 
         <section class="category-section" id="category-section">
             <div class="category-container">
@@ -408,9 +631,7 @@
         </div>
     </footer>
 
-    <!-- Firebase SDK -->
     <script type="module">
-        // Your Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyAXhng2PVJBg3YpigP-wVMi-AjRrW7GQPE",
             authDomain: "srikrishnarestaurant-34f8a.firebaseapp.com",
@@ -421,14 +642,12 @@
             measurementId: "G-ZENF42H745"
         };
 
-        // Debug logger
         window.fbDebug = function(msg) {
             console.log('[Firebase]', msg);
             const statusEl = document.getElementById('firebase-status');
             if (statusEl) statusEl.textContent = msg;
         };
 
-        // Initialize Firebase
         window.initFirebase = async function() {
             if (window.db) return window.db;
             try {
@@ -456,7 +675,6 @@
             }
         };
 
-        // Save order to Firestore
         window.saveOrderToFirestore = async function(order) {
             window.fbDebug('Saving order...');
             const db = await window.initFirebase();
@@ -481,7 +699,6 @@
             }
         };
 
-        // Auto-init on load
         window.initFirebase();
     </script>
 
