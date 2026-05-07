@@ -1,5 +1,5 @@
-// Sri Krishna Hotel - Ultra Performance JS
-// Optimizations: requestIdleCallback, IntersectionObserver, debouncing, lazy loading, minimal DOM writes
+// Sri Krishna Hotel - Phone Optimized + Firebase Ready
+// Ultra-fast mobile experience
 
 const menuItems = [
     { id: 1,  name: "Chicken Rice",      price: 90,  category: "Rice",        image: "chickenrice.webp" },
@@ -35,7 +35,7 @@ const HOTEL_NAME      = "Sri Krishna Hotel";
 const PHONE_NUMBER    = "98433 36980";
 const WHATSAPP_NUMBER = "919843336980";
 const UPI_ID          = "9843336980@ibl";
-const FALLBACK_IMAGE  = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&q=50&fm=webp";
+const FALLBACK_IMAGE  = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&q=40&fm=webp";
 
 const UPI_APPS = [
     { id: 'gpay',      name: 'GPay',      icon: 'https://img.icons8.com/color/96/google-pay.png',  color: '#4285F4', pkg: 'com.google.android.apps.nbu.paisa.user' },
@@ -58,9 +58,8 @@ let heroSliderInterval = null;
 let searchDebounceTimer = null;
 let imgObserver = null;
 let upiGridRendered = false;
-let menuRendered = false;
 
-// ===== Ultra-fast init =====
+// ===== Fast Init =====
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
@@ -71,21 +70,15 @@ function init() {
     loadCart();
     setupImgObserver();
     setupEventListeners();
-
-    // Render menu immediately with skeleton already showing
     requestAnimationFrame(() => {
         renderMenu();
         updateCartDisplay();
     });
-
-    // Defer non-critical work
     const idle = window.requestIdleCallback || (fn => setTimeout(fn, 50));
-    idle(() => {
-        startHeroSlider();
-    });
+    idle(() => startHeroSlider());
 }
 
-// ===== Intersection Observer for images =====
+// ===== Image Observer =====
 function setupImgObserver() {
     if (!('IntersectionObserver' in window)) return;
     imgObserver = new IntersectionObserver((entries) => {
@@ -93,13 +86,10 @@ function setupImgObserver() {
             if (!entry.isIntersecting) return;
             const img = entry.target;
             const src = img.dataset.src;
-            if (src) {
-                img.src = src;
-                img.removeAttribute('data-src');
-            }
+            if (src) { img.src = src; img.removeAttribute('data-src'); }
             imgObserver.unobserve(img);
         });
-    }, { rootMargin: '200px', threshold: 0.01 });
+    }, { rootMargin: '150px', threshold: 0.01 });
 }
 
 // ===== Storage =====
@@ -115,7 +105,7 @@ function saveCart() {
     try { localStorage.setItem('sriKrishnaCart', JSON.stringify(cart)); } catch {}
 }
 
-// ===== Render Menu - Ultra fast =====
+// ===== Render Menu =====
 function renderMenu() {
     const menuContainer = document.getElementById('menu-container');
     if (!menuContainer) return;
@@ -127,74 +117,57 @@ function renderMenu() {
 
     if (!items.length) {
         menuContainer.innerHTML = `
-            <div class="empty-cart" style="grid-column:1/-1;padding:60px;text-align:center">
-                <i class="fas fa-search" style="font-size:3rem;color:#ccc"></i>
-                <p style="margin-top:16px;font-weight:600">No items found</p>
-                <span style="color:#888">Try a different search or category</span>
+            <div class="empty-cart" style="grid-column:1/-1;padding:50px 20px;text-align:center">
+                <i class="fas fa-search" style="font-size:2.5rem;color:#ccc"></i>
+                <p style="margin-top:14px;font-weight:600;font-size:1rem">No items found</p>
+                <span style="color:#888;font-size:0.9rem">Try a different search or category</span>
             </div>`;
-        menuRendered = true;
         return;
     }
 
     const qtyMap = new Map(cart.map(c => [c.id, c.quantity]));
     const parts = [];
 
-    // Batch process in chunks for smoother UI
-    const batchSize = 9;
-    const totalItems = items.length;
+    items.forEach((item, idx) => {
+        const qty = qtyMap.get(item.id) || 0;
+        const eager = idx < 2;
+        const imgAttr = eager
+            ? `src="${item.image}"`
+            : `src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="${item.image}"`;
 
-    function renderBatch(startIdx) {
-        const endIdx = Math.min(startIdx + batchSize, totalItems);
-
-        for (let idx = startIdx; idx < endIdx; idx++) {
-            const item = items[idx];
-            const qty = qtyMap.get(item.id) || 0;
-            const eager = idx < 3;
-            const imgAttr = eager
-                ? `src="${item.image}"`
-                : `src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="${item.image}"`;
-
-            parts.push(`
-            <div class="product-card" data-id="${item.id}">
-                <div class="product-image">
-                    <img ${imgAttr} alt="${item.name}" loading="${eager ? 'eager' : 'lazy'}" width="400" height="225"
-                        onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}';this.classList.add('loaded')"
-                        onload="this.classList.add('loaded')">
-                    <span class="product-badge">${item.category}</span>
-                </div>
-                <div class="product-info">
-                    <h3 class="product-name">${item.name}</h3>
-                    <p class="product-price">₹${item.price}</p>
-                    <div class="product-actions">
-                        <div class="quantity-control">
-                            <button class="qty-btn minus" data-id="${item.id}" ${qty <= 0 ? 'disabled' : ''}>-</button>
-                            <span class="qty-value">${qty}</span>
-                            <button class="qty-btn plus" data-id="${item.id}">+</button>
-                        </div>
-                        <button class="btn-add-cart ${qty > 0 ? 'added' : ''}" data-id="${item.id}">
-                            <i class="fas ${qty > 0 ? 'fa-check' : 'fa-cart-plus'}"></i>
-                            <span>${qty > 0 ? 'Added' : 'Add'}</span>
-                        </button>
+        parts.push(`
+        <div class="product-card" data-id="${item.id}">
+            <div class="product-image">
+                <img ${imgAttr} alt="${item.name}" loading="${eager ? 'eager' : 'lazy'}" width="400" height="225" decoding="async"
+                    onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}';this.classList.add('loaded')"
+                    onload="this.classList.add('loaded')">
+                <span class="product-badge">${item.category}</span>
+            </div>
+            <div class="product-info">
+                <h3 class="product-name">${item.name}</h3>
+                <p class="product-price">₹${item.price}</p>
+                <div class="product-actions">
+                    <div class="quantity-control">
+                        <button class="qty-btn minus" data-id="${item.id}" ${qty <= 0 ? 'disabled' : ''}>-</button>
+                        <span class="qty-value">${qty}</span>
+                        <button class="qty-btn plus" data-id="${item.id}">+</button>
                     </div>
+                    <button class="btn-add-cart ${qty > 0 ? 'added' : ''}" data-id="${item.id}">
+                        <i class="fas ${qty > 0 ? 'fa-check' : 'fa-cart-plus'}"></i>
+                        <span>${qty > 0 ? 'Added' : 'Add'}</span>
+                    </button>
                 </div>
-            </div>`);
-        }
+            </div>
+        </div>`);
+    });
 
-        if (endIdx < totalItems) {
-            requestIdleCallback(() => renderBatch(endIdx));
-        } else {
-            menuContainer.innerHTML = parts.join('');
-            if (imgObserver) {
-                menuContainer.querySelectorAll('img[data-src]').forEach(img => imgObserver.observe(img));
-            }
-            menuRendered = true;
-        }
+    menuContainer.innerHTML = parts.join('');
+    if (imgObserver) {
+        menuContainer.querySelectorAll('img[data-src]').forEach(img => imgObserver.observe(img));
     }
-
-    renderBatch(0);
 }
 
-// ===== Cart Functions =====
+// ===== Cart =====
 function getTotal() { return cart.reduce((s, i) => s + i.price * i.quantity, 0); }
 
 function addToCart(id) {
@@ -207,6 +180,8 @@ function addToCart(id) {
     updateCartDisplay();
     updateCardUI(id);
     showToast(item.name + ' added!');
+    // Haptic feedback on mobile
+    if (navigator.vibrate) navigator.vibrate(15);
 }
 
 function decreaseQuantity(id) {
@@ -245,7 +220,6 @@ function updateCartDisplay() {
     if (stickyCart) stickyCart.style.display = totalItems > 0 ? 'block' : 'none';
     updateQrAmount();
 
-    // Only rebuild cart HTML if drawer is open
     const drawer = document.getElementById('cart-drawer');
     if (!drawer || !drawer.classList.contains('open')) return;
     _rebuildCartItemsHTML(totalAmount);
@@ -269,8 +243,8 @@ function _rebuildCartItemsHTML(totalAmount) {
 
     const parts = cart.map(item => `
         <div class="cart-item">
-            <img src="${item.image}" alt="${item.name}" class="cart-item-image" width="56" height="56"
-                loading="lazy" onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}'">
+            <img src="${item.image}" alt="${item.name}" class="cart-item-image" width="48" height="48"
+                loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}'">
             <div class="cart-item-details">
                 <div class="cart-item-name">${item.name}</div>
                 <div class="cart-item-price">₹${item.price} each</div>
@@ -324,7 +298,7 @@ function showToast(msg) {
     toastMsg.textContent = msg;
     toast.classList.add('show');
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
 }
 
 // ===== Hero Slider =====
@@ -346,7 +320,7 @@ function startHeroSlider() {
     dots.forEach((dot, idx) => dot.addEventListener('click', () => { if (idx !== currentSlide) goto(idx); }));
 }
 
-// ===== UPI Grid - Lazy render =====
+// ===== UPI Grid =====
 function renderUpiAppGrid() {
     if (upiGridRendered) return;
     const grid = document.getElementById('upi-app-grid');
@@ -355,7 +329,7 @@ function renderUpiAppGrid() {
         <button type="button" class="upi-app-btn" data-app="${app.id}">
             <div class="upi-app-icon">
                 ${app.icon
-                    ? `<img src="${app.icon}" alt="${app.name}" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=\'fallback-icon\' style=\'background:${app.color}\'>${app.name[0]}</span>'">`
+                    ? `<img src="${app.icon}" alt="${app.name}" loading="lazy" decoding="async" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=\'fallback-icon\' style=\'background:${app.color}\'>${app.name[0]}</span>'">`
                     : `<span class="fallback-icon" style="background:${app.color}">${app.name[0]}</span>`}
             </div>
             <span class="upi-app-name">${app.name}</span>
@@ -432,7 +406,6 @@ function copyUpiId() {
 
 // ===== Event Listeners =====
 function setupEventListeners() {
-    // Menu container click delegation
     const menuContainer = document.getElementById('menu-container');
     if (menuContainer) {
         menuContainer.addEventListener('click', function(e) {
@@ -445,7 +418,6 @@ function setupEventListeners() {
         });
     }
 
-    // Cart items click delegation
     const cartItems = document.getElementById('cart-items');
     if (cartItems) {
         cartItems.addEventListener('click', function(e) {
@@ -458,7 +430,6 @@ function setupEventListeners() {
         });
     }
 
-    // Category buttons
     document.querySelectorAll('.category-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
@@ -469,7 +440,6 @@ function setupEventListeners() {
         });
     });
 
-    // Mobile menu category items
     document.querySelectorAll('.mobile-menu-item[data-category]').forEach(item => {
         item.addEventListener('click', function(e) {
             e.preventDefault();
@@ -483,7 +453,6 @@ function setupEventListeners() {
         });
     });
 
-    // Search
     const searchToggle = document.getElementById('search-toggle');
     const searchClose = document.getElementById('search-close');
     const searchInput = document.getElementById('search-input');
@@ -498,11 +467,10 @@ function setupEventListeners() {
         searchInput.addEventListener('input', function() {
             const val = this.value;
             clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(() => { searchQuery = val; renderMenu(); }, 150);
+            searchDebounceTimer = setTimeout(() => { searchQuery = val; renderMenu(); }, 120);
         });
     }
 
-    // Mobile menu
     const menuToggle = document.getElementById('menu-toggle');
     const mobileMenuClose = document.getElementById('mobile-menu-close');
     const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
@@ -511,7 +479,6 @@ function setupEventListeners() {
     if (mobileMenuClose) mobileMenuClose.addEventListener('click', closeMobileMenu);
     if (mobileMenuOverlay) mobileMenuOverlay.addEventListener('click', closeMobileMenu);
 
-    // Cart
     const cartBtn = document.getElementById('cart-btn');
     const cartClose = document.getElementById('cart-close');
     const cartOverlay = document.getElementById('cart-overlay');
@@ -526,14 +493,12 @@ function setupEventListeners() {
         closeCart(); updateQrAmount(); openOrderModal();
     });
 
-    // Order modal
     const orderModalClose = document.getElementById('order-modal-close');
     const orderModalOverlay = document.getElementById('order-modal-overlay');
 
     if (orderModalClose) orderModalClose.addEventListener('click', closeOrderModal);
     if (orderModalOverlay) orderModalOverlay.addEventListener('click', closeOrderModal);
 
-    // Payment method
     document.querySelectorAll('input[name="payment-method"]').forEach(radio => {
         radio.addEventListener('change', function() {
             selectedUpiApp = null;
@@ -556,7 +521,6 @@ function setupEventListeners() {
         });
     });
 
-    // UPI app grid
     const upiAppGrid = document.getElementById('upi-app-grid');
     if (upiAppGrid) {
         upiAppGrid.addEventListener('click', function(e) {
@@ -568,11 +532,9 @@ function setupEventListeners() {
     const btnCopyUpi = document.getElementById('btn-copy-upi');
     if (btnCopyUpi) btnCopyUpi.addEventListener('click', copyUpiId);
 
-    // Order form
     const orderForm = document.getElementById('order-form');
     if (orderForm) orderForm.addEventListener('submit', function(e) { e.preventDefault(); submitOrder(); });
 
-    // Success modal
     const btnNewOrder = document.getElementById('btn-new-order');
     if (btnNewOrder) btnNewOrder.addEventListener('click', function() {
         closeSuccessModal(); clearCart(); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -581,7 +543,6 @@ function setupEventListeners() {
     const dlBtn = document.getElementById('btn-download-bill');
     if (dlBtn) dlBtn.addEventListener('click', () => { if (lastGeneratedBill) generateBillPDF(lastGeneratedBill, 'download'); });
 
-    // History
     const mobileViewOrders = document.getElementById('mobile-view-orders');
     const footerHistory = document.getElementById('footer-history');
     const historyModalClose = document.getElementById('history-modal-close');
@@ -592,7 +553,6 @@ function setupEventListeners() {
     if (historyModalClose) historyModalClose.addEventListener('click', closeHistoryModal);
     if (historyModalOverlay) historyModalOverlay.addEventListener('click', closeHistoryModal);
 
-    // Contact
     const mobileContact = document.getElementById('mobile-contact');
     const footerContact = document.getElementById('footer-contact');
     const contactModalClose = document.getElementById('contact-modal-close');
@@ -603,13 +563,19 @@ function setupEventListeners() {
     if (contactModalClose) contactModalClose.addEventListener('click', closeContactModal);
     if (contactModalOverlay) contactModalOverlay.addEventListener('click', closeContactModal);
 
-    // Mobile input filter
     const customerMobile = document.getElementById('customer-mobile');
     if (customerMobile) {
         customerMobile.addEventListener('input', function() {
             this.value = this.value.replace(/\D/g, '').slice(0, 10);
         });
     }
+
+    // Pull-to-refresh prevention on mobile
+    document.body.addEventListener('touchmove', function(e) {
+        if (document.body.style.overflow === 'hidden') {
+            e.preventDefault();
+        }
+    }, { passive: false });
 }
 
 // ===== Modals =====
@@ -768,10 +734,11 @@ function submitOrder() {
     saveOrderToHistory(order);
     lastGeneratedBill = order;
 
+    // Save to Firebase if available
     if (typeof window.saveOrderToFirestore === 'function') {
         window.saveOrderToFirestore(order).then(function(firestoreId) {
-            if (firestoreId) console.log('Order saved to cloud! Firestore ID:', firestoreId);
-        });
+            if (firestoreId) console.log('Order saved to cloud! ID:', firestoreId);
+        }).catch(err => console.warn('Firebase save failed:', err));
     }
 
     generateBillPDF(order, 'whatsapp').catch(err => {
@@ -856,15 +823,15 @@ function createPDFDataUri(order, jsPDFClass) {
         const n = item.name.length > 26 ? item.name.slice(0, 23) + '...' : item.name;
         doc.text(n, L, y);
         doc.text(String(item.quantity), 120, y, { align: 'center' });
-        doc.text('₹' + item.price, 155, y, { align: 'right' });
-        doc.text('₹' + (item.price * item.quantity), R, y, { align: 'right' });
+        doc.text('Rs.' + item.price, 155, y, { align: 'right' });
+        doc.text('Rs.' + (item.price * item.quantity), R, y, { align: 'right' });
         y += 7;
     });
 
     y += 4; doc.setLineWidth(0.5); doc.line(L, y, R, y); y += 8;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
     doc.text('TOTAL AMOUNT', L, y);
-    doc.text('₹' + order.totalAmount, R, y, { align: 'right' }); y += 10;
+    doc.text('Rs.' + order.totalAmount, R, y, { align: 'right' }); y += 10;
 
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text('Payment Method : ' + order.paymentStatus, L, y); y += 10;
@@ -918,8 +885,8 @@ function downloadPDFAndOpenWhatsApp(order, pdfDataUri) {
 }
 
 function buildWhatsAppText(order) {
-    const items = order.items.map(i => i.name + ' x' + i.quantity + ' - ₹' + (i.price * i.quantity)).join('\n');
-    return `*${HOTEL_NAME.toUpperCase()}*\n\nOrder: ${order.id}\nDate: ${order.date} ${order.time}\n\nCustomer: ${order.customerName}\nTable: ${order.tableNumber}\n\nItems:\n${items}\n\nTotal: ₹${order.totalAmount}\nPayment: ${order.paymentStatus}${order.notes ? '\nNotes: ' + order.notes : ''}\n\nThank you! Visit again.`;
+    const items = order.items.map(i => i.name + ' x' + i.quantity + ' - Rs.' + (i.price * i.quantity)).join('\n');
+    return `*${HOTEL_NAME.toUpperCase()}*\n\nOrder: ${order.id}\nDate: ${order.date} ${order.time}\n\nCustomer: ${order.customerName}\nTable: ${order.tableNumber}\n\nItems:\n${items}\n\nTotal: Rs.${order.totalAmount}\nPayment: ${order.paymentStatus}${order.notes ? '\nNotes: ' + order.notes : ''}\n\nThank you! Visit again.`;
 }
 
 function buildWhatsAppMessageEncoded(order) { return encodeURIComponent(buildWhatsAppText(order)); }
@@ -956,7 +923,7 @@ function renderOrderHistory() {
                     <span class="history-item-date">${o.date} ${o.time}</span>
                 </div>
                 <div class="history-item-details">${o.items.map(i => i.name + ' x' + i.quantity).join(', ')}</div>
-                <div class="history-item-total">₹${o.totalAmount} - ${o.paymentStatus}</div>
+                <div class="history-item-total">Rs.${o.totalAmount} - ${o.paymentStatus}</div>
             </div>`).join('');
     } catch {
         container.innerHTML = '<div class="empty-history"><i class="fas fa-clipboard-list"></i><p>No orders yet</p></div>';
