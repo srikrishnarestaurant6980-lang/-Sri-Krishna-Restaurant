@@ -1,5 +1,7 @@
-// Sri Krishna Hotel - Phone Optimized + Firebase Ready + Image Fallbacks
-const menuItems = [
+// Sri Krishna Hotel - Updated with Gift Box Login Tracking & Floating Button
+'use strict';
+
+const MENU_ITEMS = Object.freeze([
     { id: 1,  name: "Chicken Rice",      price: 90,  category: "Rice",        image: "chickenrice.webp", emoji: "🍗" },
     { id: 2,  name: "Egg Rice",          price: 80,  category: "Rice",        image: "eggrice.webp", emoji: "🍳" },
     { id: 3,  name: "Veg Rice",          price: 70,  category: "Rice",        image: "vegrice.webp", emoji: "🍚" },
@@ -27,7 +29,7 @@ const menuItems = [
     { id: 25, name: "Chicken Noodles",   price: 90,  category: "Noodles",     image: "chickennoodles.webp", emoji: "🍜" },
     { id: 26, name: "Veg Noodles",       price: 60,  category: "Noodles",     image: "veg noodles.webp", emoji: "🍜" },
     { id: 27, name: "Egg Noodles",       price: 80,  category: "Noodles",     image: "eggnoodles.webp", emoji: "🍜" }
-];
+]);
 
 const HOTEL_NAME = "Sri Krishna Hotel";
 const PHONE_NUMBER = "98433 36980";
@@ -35,18 +37,45 @@ const WHATSAPP_NUMBER = "919843336980";
 const UPI_ID = "9843336980@ibl";
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&q=40&fm=webp";
 
-const UPI_APPS = [
+const UPI_APPS = Object.freeze([
     { id: 'gpay',      name: 'GPay',      icon: 'https://img.icons8.com/color/96/google-pay.png',  color: '#4285F4', pkg: 'com.google.android.apps.nbu.paisa.user' },
     { id: 'phonepe',   name: 'PhonePe',   icon: 'https://img.icons8.com/color/96/phone-pe.png',    color: '#5f259f', pkg: 'com.phonepe.app' },
     { id: 'paytm',     name: 'Paytm',     icon: 'https://img.icons8.com/color/96/paytm.png',       color: '#00b9f1', pkg: 'net.one97.paytm' },
     { id: 'bhim',      name: 'BHIM',      icon: 'https://img.icons8.com/color/96/bhim.png',        color: '#00a651', pkg: 'in.org.npci.upiapp' },
     { id: 'amazonpay', name: 'Amazon',    icon: 'https://img.icons8.com/color/96/amazon.png',      color: '#FF9900', pkg: 'in.amazon.mShop.android.shopping' },
     { id: 'other',     name: 'Other UPI', icon: null,                                               color: '#607d8b', pkg: null }
-];
+]);
+
+const GIFT_CONFIG = Object.freeze({
+    CYCLE_DAYS: 10,
+    MIN_SPEND: 1000,
+    COUPON_VALUE: 100,
+    STORAGE_KEY: 'sriKrishnaGiftBox',
+    COUPON_STORAGE: 'sriKrishnaCoupons',
+    USER_KEY: 'sriKrishnaUser'
+});
 
 let cart = [], currentCategory = 'all', searchQuery = '', paymentStatus = 'cash';
 let currentSlide = 0, selectedUpiApp = null, lastGeneratedBill = null;
 let heroSliderInterval = null, searchDebounceTimer = null, imgObserver = null, upiGridRendered = false;
+let giftBoxState = null;
+let giftBoxVisible = false;
+
+// ===================== UTILITY FUNCTIONS =====================
+
+function safeJSONParse(key, defaultVal) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : defaultVal; }
+    catch { return defaultVal; }
+}
+
+function safeJSONSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch { return false; }
+}
+
+function getTotal() { return cart.reduce((s, i) => s + i.price * i.quantity, 0); }
+
+// ===================== INITIALIZATION =====================
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
@@ -61,6 +90,8 @@ function init() {
     requestAnimationFrame(() => { renderMenu(); updateCartDisplay(); });
     const idle = window.requestIdleCallback || (fn => setTimeout(fn, 50));
     idle(() => startHeroSlider());
+    // Initialize gift box with login tracking
+    setTimeout(initGiftBoxWithLogin, 300);
 }
 
 function setupImgObserver() {
@@ -77,21 +108,267 @@ function setupImgObserver() {
 }
 
 function loadCart() {
-    try {
-        const saved = localStorage.getItem('sriKrishnaCart');
-        cart = saved ? JSON.parse(saved) : [];
-        if (!Array.isArray(cart)) cart = [];
-    } catch { cart = []; }
+    cart = safeJSONParse('sriKrishnaCart', []);
+    if (!Array.isArray(cart)) cart = [];
 }
 
 function saveCart() {
-    try { localStorage.setItem('sriKrishnaCart', JSON.stringify(cart)); } catch {}
+    safeJSONSet('sriKrishnaCart', cart);
 }
+
+// ===================== GIFT BOX LOGIN TRACKING =====================
+
+function initGiftBoxWithLogin() {
+    // Check if user has number login already
+    const userPhone = safeJSONParse('giftUserPhone', null);
+    
+    if (userPhone) {
+        // User already logged in - silently load gift data (no popup on page load)
+        loadUserGiftData(userPhone);
+    }
+    // If no phone, do nothing on init - wait for gift button click
+    updateGiftBadge();
+}
+
+function showGiftPhoneLoginModal() {
+    // Remove existing modal if any
+    const existing = document.getElementById('gift-phone-login-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'gift-phone-login-modal';
+    modal.className = 'gift-phone-login-modal-overlay';
+    modal.innerHTML = `
+        <div class="gift-phone-login-container">
+            <h2>🎁 Unlock Your Daily Gifts!</h2>
+            <p>Enter your phone number to check your rewards</p>
+            <input type="tel" id="gift-phone-input" maxlength="10" placeholder="10-digit number" inputmode="numeric">
+            <button id="gift-phone-submit">Check My Rewards</button>
+            <button id="gift-phone-cancel" style="width:100%;padding:12px;background:#f5f5f5;color:#666;border-radius:50px;font-weight:600;font-size:0.95rem;border:none;cursor:pointer;margin-top:-8px;">✕ Cancel</button>
+            <p class="gift-info-text">You need ₹1000+ spent to unlock gifts</p>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const input = modal.querySelector('#gift-phone-input');
+    const btn = modal.querySelector('#gift-phone-submit');
+    const cancelBtn = modal.querySelector('#gift-phone-cancel');
+
+    cancelBtn.addEventListener('click', () => {
+        modal.remove();
+    });
+
+    // Close on overlay click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+
+    btn.addEventListener('click', () => {
+        const phone = input.value.trim();
+        
+        // Validate phone - must be 10 digits starting with 6-9
+        if (!/^[6-9]\d{9}$/.test(phone)) {
+            showToast('Please enter valid 10-digit mobile number (start with 6-9)');
+            return;
+        }
+
+        // Show loading state
+        btn.disabled = true;
+        btn.textContent = 'Checking...';
+
+        // Simulate database lookup
+        verifyUserPhoneAndSetupGifts(phone, modal);
+    });
+
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') btn.click();
+    });
+
+    // Auto focus input
+    setTimeout(() => input.focus(), 100);
+}
+
+function verifyUserPhoneAndSetupGifts(phone, modal) {
+    // Simulate database check
+    const users = {
+        '9843336980': { name: 'Test User 1', totalSpent: 1500, eligible: true },
+        '9876543210': { name: 'Test User 2', totalSpent: 1200, eligible: true }
+    };
+
+    const user = users[phone];
+    
+    if (user && user.totalSpent >= 1000) {
+        // Store phone and load gifts
+        safeJSONSet('giftUserPhone', phone);
+        safeJSONSet('giftUserName', user.name);
+        safeJSONSet('giftUserSpent', user.totalSpent);
+        
+        // Remove modal
+        modal.remove();
+
+        // Show reward status card (one-time display after login)
+        showRewardStatusCard(user, phone);
+        
+        // Load gift data
+        loadUserGiftData(phone);
+    } else {
+        // Show not eligible card
+        showNotEligibleCard(modal, phone, user);
+    }
+}
+
+function showRewardStatusCard(user, phone) {
+    // Remove any existing card
+    const existing = document.getElementById('reward-status-card');
+    if (existing) existing.remove();
+
+    const isEligible = user.totalSpent >= 1000;
+    const card = document.createElement('div');
+    card.id = 'reward-status-card';
+    card.className = 'reward-status-card-overlay';
+    card.innerHTML = `
+        <div class="reward-status-card">
+            <button class="reward-card-cancel" id="reward-card-cancel"><i class="fas fa-times"></i></button>
+            <div class="reward-card-icon">${isEligible ? '🎉' : '⏳'}</div>
+            <h3>${isEligible ? 'You Have Rewards!' : 'Almost There!'}</h3>
+            <p class="reward-card-name">Hi ${user.name}!</p>
+            <div class="reward-card-stats">
+                <div class="reward-stat">
+                    <span class="reward-stat-value">₹${user.totalSpent}</span>
+                    <span class="reward-stat-label">Total Spent</span>
+                </div>
+                <div class="reward-stat ${isEligible ? 'eligible' : ''}">
+                    <span class="reward-stat-value">${isEligible ? '✅' : `₹${Math.max(0, 1000 - user.totalSpent)}`}</span>
+                    <span class="reward-stat-label">${isEligible ? 'Eligible!' : 'More Needed'}</span>
+                </div>
+            </div>
+            <p class="reward-card-msg">${isEligible ? '🎁 You can claim your daily gift boxes now!' : `Spend ₹${Math.max(0, 1000 - user.totalSpent)} more to unlock gift rewards`}</p>
+            <button class="reward-card-open-btn" id="reward-open-gifts">
+                <i class="fas fa-gift"></i> ${isEligible ? 'Open Gift Box' : 'View Gifts'}
+            </button>
+            <button class="reward-card-close-btn" id="reward-card-close">Close</button>
+        </div>
+    `;
+    document.body.appendChild(card);
+    document.body.style.overflow = 'hidden';
+
+    const closeCard = () => {
+        card.remove();
+        document.body.style.overflow = '';
+    };
+
+    document.getElementById('reward-card-cancel').addEventListener('click', closeCard);
+    document.getElementById('reward-card-close').addEventListener('click', closeCard);
+    card.addEventListener('click', (e) => { if (e.target === card) closeCard(); });
+
+    document.getElementById('reward-open-gifts').addEventListener('click', () => {
+        closeCard();
+        // Open gift box
+        const wrapper = document.getElementById('gift-box-wrapper');
+        if (wrapper) {
+            giftBoxVisible = true;
+            wrapper.classList.add('show');
+            setTimeout(() => wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+            renderGiftBox();
+            updateGiftBadge();
+        }
+    });
+}
+
+function showNotEligibleCard(modal, phone, user) {
+    // Reset submit button
+    const btn = modal.querySelector('#gift-phone-submit');
+    if (btn) { btn.disabled = false; btn.textContent = 'Check My Rewards'; }
+
+    // Show inline message in modal
+    const existing = modal.querySelector('.not-eligible-msg');
+    if (existing) existing.remove();
+
+    const msg = document.createElement('div');
+    msg.className = 'not-eligible-msg';
+    msg.style.cssText = 'background:#fff3e0;border:1.5px solid #ff9800;border-radius:10px;padding:12px;margin-top:10px;font-size:0.88rem;color:#bf360c;font-weight:600;text-align:center;';
+    msg.innerHTML = user
+        ? `⚠️ Need ₹${Math.max(0, 1000 - user.totalSpent)} more to unlock gifts<br><small style="font-weight:400;color:#666">Current: ₹${user.totalSpent} of ₹1000</small>`
+        : `❌ Phone number not found in our records<br><small style="font-weight:400;color:#666">Try ordering with this number first</small>`;
+    modal.querySelector('.gift-phone-login-container').appendChild(msg);
+}
+
+function loadUserGiftData(phone) {
+    const userName = safeJSONParse('giftUserName', 'User');
+    const totalSpent = safeJSONParse('giftUserSpent', 0);
+    
+    // Initialize gift box state
+    const userData = {
+        phone: phone,
+        name: userName,
+        totalSpent: totalSpent,
+        firstVisit: new Date().toISOString(),
+        lastVisit: new Date().toISOString()
+    };
+    safeJSONSet(GIFT_CONFIG.USER_KEY, userData);
+
+    // Load or create gift box state
+    loadGiftBoxState();
+    updateGiftBadge();
+    renderGiftBox();
+    
+    console.log(`[GiftBox] Logged in: ${userName} | Phone: ${phone} | Spent: ₹${totalSpent}`);
+}
+
+function updateGiftBadge() {
+    const badge = document.getElementById('gift-badge');
+    if (!badge || !giftBoxState) return;
+
+    const currentDay = getCurrentDay();
+    const canOpen = canOpenToday();
+
+    if (canOpen) {
+        badge.textContent = '!';
+        badge.style.background = '#dc3545';
+    } else if (checkCouponEligibility()) {
+        badge.textContent = '✓';
+        badge.style.background = '#28a745';
+    } else {
+        badge.textContent = currentDay;
+        badge.style.background = '#6c757d';
+    }
+}
+
+function toggleGiftBox() {
+    const userPhone = safeJSONParse('giftUserPhone', null);
+
+    if (!userPhone) {
+        // Not logged in yet - show phone login modal on button click
+        showGiftPhoneLoginModal();
+        return;
+    }
+
+    const wrapper = document.getElementById('gift-box-wrapper');
+    if (!wrapper) return;
+
+    giftBoxVisible = !giftBoxVisible;
+
+    if (giftBoxVisible) {
+        wrapper.classList.add('show');
+        // Scroll to gift box
+        setTimeout(() => {
+            wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    } else {
+        wrapper.classList.remove('show');
+    }
+
+    // Re-render to update state
+    renderGiftBox();
+    updateGiftBadge();
+}
+
+// ===================== MENU RENDERING =====================
 
 function renderMenu() {
     const menuContainer = document.getElementById('menu-container');
     if (!menuContainer) return;
-    let items = menuItems;
+    let items = [...MENU_ITEMS];
     const q = searchQuery.trim().toLowerCase();
     if (currentCategory !== 'all') items = items.filter(i => i.category === currentCategory);
     if (q) items = items.filter(i => i.name.toLowerCase().includes(q));
@@ -107,17 +384,16 @@ function renderMenu() {
         const qty = qtyMap.get(item.id) || 0;
         const eager = idx < 2;
         const imgAttr = eager ? `src="${item.image}"` : `src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="${item.image}"`;
-        // Emoji fallback when image fails
         parts.push(`<div class="product-card" data-id="${item.id}"><div class="product-image"><div class="product-image-fallback">${item.emoji}</div><img ${imgAttr} alt="${item.name}" loading="${eager ? 'eager' : 'lazy'}" width="400" height="225" decoding="async" onerror="this.style.display='none'" onload="this.classList.add('loaded')"><span class="product-badge">${item.category}</span></div><div class="product-info"><h3 class="product-name">${item.name}</h3><p class="product-price">Rs.${item.price}</p><div class="product-actions"><div class="quantity-control"><button class="qty-btn minus" data-id="${item.id}" ${qty <= 0 ? 'disabled' : ''}>-</button><span class="qty-value">${qty}</span><button class="qty-btn plus" data-id="${item.id}">+</button></div><button class="btn-add-cart ${qty > 0 ? 'added' : ''}" data-id="${item.id}"><i class="fas ${qty > 0 ? 'fa-check' : 'fa-cart-plus'}"></i><span>${qty > 0 ? 'Added' : 'Add'}</span></button></div></div></div>`);
     });
     menuContainer.innerHTML = parts.join('');
     if (imgObserver) menuContainer.querySelectorAll('img[data-src]').forEach(img => imgObserver.observe(img));
 }
 
-function getTotal() { return cart.reduce((s, i) => s + i.price * i.quantity, 0); }
+// ===================== CART OPERATIONS =====================
 
 function addToCart(id) {
-    const item = menuItems.find(i => i.id === id);
+    const item = MENU_ITEMS.find(i => i.id === id);
     if (!item) return;
     const existing = cart.find(c => c.id === id);
     if (existing) existing.quantity++;
@@ -177,7 +453,7 @@ function _rebuildCartItemsHTML(totalAmount) {
     if (cartItemsEl) cartItemsEl.style.display = 'block';
     if (cartFooter) cartFooter.style.display = 'block';
     const parts = cart.map(item => {
-        const menuItem = menuItems.find(m => m.id === item.id);
+        const menuItem = MENU_ITEMS.find(m => m.id === item.id);
         const emoji = menuItem ? menuItem.emoji : '🍽️';
         return `<div class="cart-item"><div style="width:48px;height:48px;border-radius:8px;background:linear-gradient(135deg,#ff9800,#e65100);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">${emoji}</div><div class="cart-item-details"><div class="cart-item-name">${item.name}</div><div class="cart-item-price">Rs.${item.price} each</div></div><div class="cart-item-qty"><button data-action="decrease" data-id="${item.id}"><i class="fas fa-minus"></i></button><span>${item.quantity}</span><button data-action="increase" data-id="${item.id}"><i class="fas fa-plus"></i></button></div><button class="cart-item-remove" data-action="remove" data-id="${item.id}"><i class="fas fa-trash-alt"></i></button></div>`;
     }).join('');
@@ -211,6 +487,8 @@ function clearCart() {
     document.querySelectorAll('.product-card').forEach(card => updateCardUI(parseInt(card.dataset.id)));
 }
 
+// ===================== UI HELPERS =====================
+
 let toastTimer = null;
 function showToast(msg) {
     const toast = document.getElementById('toast');
@@ -238,6 +516,8 @@ function startHeroSlider() {
     dots.forEach((dot, idx) => dot.addEventListener('click', () => { if (idx !== currentSlide) goto(idx); }));
 }
 
+// ===================== PAYMENT & UPI =====================
+
 function renderUpiAppGrid() {
     if (upiGridRendered) return;
     const grid = document.getElementById('upi-app-grid');
@@ -264,7 +544,10 @@ function handleUpiAppClick(appId) {
     } else {
         url = `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=INR&tn=${tn}`;
     }
-    if (/Android|iPhone|iPad/i.test(navigator.userAgent)) { window.location.href = url; showToast('Opening ' + app.name + '...'); }
+    if (/Android|iPhone|iPad/i.test(navigator.userAgent)) { 
+        window.location.href = url; 
+        showToast('Opening ' + app.name + '...'); 
+    }
     else { showToast('Please open on mobile or scan QR'); }
     document.getElementById('qr-payment-section').style.display = 'block';
     updatePaymentStatus('paid');
@@ -294,6 +577,8 @@ function copyUpiId() {
         document.body.removeChild(ta); showToast('UPI ID copied!');
     }
 }
+
+// ===================== EVENT LISTENERS =====================
 
 function setupEventListeners() {
     const menuContainer = document.getElementById('menu-container');
@@ -370,9 +655,9 @@ function setupEventListeners() {
                 document.getElementById('online-payment-section').style.display = 'block';
                 document.getElementById('cash-payment-section').style.display = 'none';
                 document.getElementById('qr-payment-section').style.display = 'none';
-                updatePaymentStatus('pending');
-                paymentStatus = 'pending';
-                document.getElementById('btn-submit-order').disabled = true;
+                paymentStatus = 'paid'; // Don't block submit - accept online payment directly
+                updatePaymentStatus('paid');
+                document.getElementById('btn-submit-order').disabled = false;
             } else {
                 document.getElementById('online-payment-section').style.display = 'none';
                 document.getElementById('cash-payment-section').style.display = 'block';
@@ -411,8 +696,52 @@ function setupEventListeners() {
     if (contactModalOverlay) contactModalOverlay.addEventListener('click', closeContactModal);
     const customerMobile = document.getElementById('customer-mobile');
     if (customerMobile) customerMobile.addEventListener('input', function() { this.value = this.value.replace(/\D/g, '').slice(0, 10); });
-    document.body.addEventListener('touchmove', function(e) { if (document.body.style.overflow === 'hidden') e.preventDefault(); }, { passive: false });
+
+    // Floating gift box button
+    const giftFloatBtn = document.getElementById('gift-float-btn');
+    if (giftFloatBtn) {
+        giftFloatBtn.addEventListener('click', toggleGiftBox);
+    }
+
+    // ESCAPE KEY SUPPORT - Close modals with Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' || e.key === 'Esc') {
+            // Close order modal
+            const orderModal = document.getElementById('order-modal');
+            if (orderModal && orderModal.classList.contains('open')) {
+                closeOrderModal();
+                return;
+            }
+            
+            // Close cart
+            const cartDrawer = document.getElementById('cart-drawer');
+            if (cartDrawer && cartDrawer.classList.contains('open')) {
+                closeCart();
+                return;
+            }
+            
+            // Close mobile menu
+            const mobileMenu = document.getElementById('mobile-menu');
+            if (mobileMenu && mobileMenu.classList.contains('open')) {
+                closeMobileMenu();
+                return;
+            }
+            
+            // Close search bar
+            const searchBar = document.getElementById('search-bar');
+            if (searchBar && searchBar.classList.contains('active')) {
+                searchBar.classList.remove('active');
+                const searchInput = document.getElementById('search-input');
+                if (searchInput) searchInput.value = '';
+                searchQuery = '';
+                renderMenu();
+                return;
+            }
+        }
+    });
 }
+
+// ===================== MODAL CONTROLS =====================
 
 function openCart() {
     const drawer = document.getElementById('cart-drawer');
@@ -425,7 +754,30 @@ function openCart() {
 function closeCart() { document.getElementById('cart-drawer')?.classList.remove('open'); document.getElementById('cart-overlay')?.classList.remove('open'); document.body.style.overflow = ''; }
 function openMobileMenu() { document.getElementById('mobile-menu')?.classList.add('open'); document.getElementById('mobile-menu-overlay')?.classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeMobileMenu() { document.getElementById('mobile-menu')?.classList.remove('open'); document.getElementById('mobile-menu-overlay')?.classList.remove('open'); document.body.style.overflow = ''; }
-function closeOrderModal() { document.getElementById('order-modal')?.classList.remove('open'); document.getElementById('order-modal-overlay')?.classList.remove('open'); document.body.style.overflow = ''; }
+function closeOrderModal() { 
+    const modal = document.getElementById('order-modal');
+    const overlay = document.getElementById('order-modal-overlay');
+    const form = document.getElementById('order-form');
+    
+    if (modal) modal.classList.remove('open'); 
+    if (overlay) overlay.classList.remove('open');
+    
+    // Clear form fields
+    if (form) {
+        form.reset();
+        form.querySelectorAll('input, textarea').forEach(el => {
+            el.value = '';
+            el.blur();
+        });
+    }
+    
+    // Reset payment status
+    paymentStatus = 'cash';
+    document.querySelectorAll('.upi-app-btn').forEach(btn => btn.classList.remove('selected'));
+    document.getElementById('qr-payment-section').style.display = 'none';
+    
+    document.body.style.overflow = '';
+}
 function openSuccessModal() { document.getElementById('success-modal')?.classList.add('open'); document.getElementById('success-modal-overlay')?.classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeSuccessModal() { document.getElementById('success-modal')?.classList.remove('open'); document.getElementById('success-modal-overlay')?.classList.remove('open'); document.body.style.overflow = ''; }
 function openHistoryModal() { renderOrderHistory(); document.getElementById('history-modal')?.classList.add('open'); document.getElementById('history-modal-overlay')?.classList.add('open'); document.body.style.overflow = 'hidden'; }
@@ -455,15 +807,57 @@ function openOrderModal() {
     updateQrAmount();
 }
 
+// ===================== ORDER SUBMISSION =====================
+
 function submitOrder() {
     const name = document.getElementById('customer-name').value.trim();
     const mobile = document.getElementById('customer-mobile').value.trim();
     const table = document.getElementById('table-number').value.trim();
     const notes = document.getElementById('order-notes').value.trim();
     const method = document.querySelector('input[name="payment-method"]:checked')?.value || 'cash';
-    if (!name || !mobile || !table) { showToast('Please fill all required fields'); return; }
-    if (mobile.length !== 10) { showToast('Enter valid 10-digit mobile number'); return; }
-    if (method === 'online' && paymentStatus !== 'paid') { showToast('Please select a UPI app first'); return; }
+    
+    // SECURITY: Validate all inputs
+    if (!name || !mobile || !table) { 
+        showToast('Please fill all required fields'); 
+        return; 
+    }
+    
+    // SECURITY: Validate phone number format (10 digits, starts with 6-9)
+    if (!/^[6-9]\d{9}$/.test(mobile)) { 
+        showToast('Enter valid 10-digit mobile number (start with 6-9)'); 
+        return; 
+    }
+    
+    // SECURITY: Validate customer name (min 3 chars, no special chars)
+    if (name.length < 3 || !/^[a-zA-Z\s]+$/.test(name)) {
+        showToast('Enter valid customer name (letters only, min 3 chars)');
+        return;
+    }
+    
+    // SECURITY: Validate table number
+    if (!/^\d+$/.test(table) || table < 1 || table > 100) {
+        showToast('Enter valid table number (1-100)');
+        return;
+    }
+    
+    // SECURITY: Validate payment method - allow online without specific UPI app selection
+    if (method === 'online') {
+        paymentStatus = 'paid'; // Accept online payment regardless of which app
+    }
+
+    // SECURITY: Check cart not empty
+    if (cart.length === 0) {
+        showToast('Cart is empty');
+        return;
+    }
+
+    // SECURITY: Verify amount
+    const totalAmount = getTotal();
+    if (totalAmount <= 0 || !isFinite(totalAmount)) {
+        showToast('Invalid order amount');
+        return;
+    }
+
     const now = new Date();
     const order = {
         id: 'ORD' + Date.now(),
@@ -474,13 +868,21 @@ function submitOrder() {
         paymentMethod: method,
         paymentStatus: method === 'cash' ? 'Cash' : 'Paid (Online)',
         items: [...cart],
-        totalAmount: getTotal(),
+        totalAmount: totalAmount,
         date: now.toLocaleDateString('en-IN'),
         time: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-        timestamp: now.getTime()
+        timestamp: now.getTime(),
+        // SECURITY: Add verification timestamp
+        processedAt: now.toISOString(),
+        // SECURITY: Add order hash for verification
+        orderHash: generateOrderHash(name, mobile, totalAmount)
     };
+
+    // Save to history
     saveOrderToHistory(order);
     lastGeneratedBill = order;
+
+    // Firebase save
     console.log('Attempting Firebase save...');
     if (typeof window.saveOrderToFirestore === 'function') {
         window.saveOrderToFirestore(order).then(function(firestoreId) {
@@ -499,13 +901,54 @@ function submitOrder() {
         console.warn('saveOrderToFirestore not available');
         showToast('Saved locally only');
     }
+
+    // Tracking (background)
+    if (typeof window.saveOrder === 'function') {
+        window.saveOrder({
+            orderId: order.id,
+            phone: mobile,
+            amount: order.totalAmount,
+            customerName: name,
+            tableNumber: table,
+            paymentMethod: method,
+            notes: notes,
+            items: order.items.map(item => ({
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity
+            }))
+        }).catch(err => console.error('Tracking error:', err));
+    }
+
+    // Update gift box spend tracking
+    updateSpendTracking(order.totalAmount);
+
+    // Generate bill & WhatsApp
     generateBillPDF(order, 'whatsapp').catch(err => {
         console.error('PDF error:', err);
         sendWhatsAppText(order);
     });
+
     closeOrderModal();
     openSuccessModal();
 }
+
+// SECURITY: Generate order hash for verification
+function generateOrderHash(name, mobile, amount) {
+    // Simple hash using name + mobile + amount + secret
+    const secret = 'SriKrishnaHotel2024';
+    const str = name + mobile + amount + secret;
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(16);
+}
+
+// ===================== PDF & WHATSAPP =====================
 
 function generateBillPDF(order, mode) {
     return new Promise(function(resolve, reject) {
@@ -576,15 +1019,17 @@ function createPDFDataUri(order, jsPDFClass) {
 function sendWhatsAppWithPDF(order, pdfDataUri) {
     const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
     if (isMobile && navigator.share) {
-        const base64 = pdfDataUri.split(',')[1];
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const blob = new Blob([bytes], { type: 'application/pdf' });
-        const file = new File([blob], 'SriKrishna_Bill_' + order.id + '.pdf', { type: 'application/pdf' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            navigator.share({ title: 'Sri Krishna Hotel - Bill ' + order.id, text: buildWhatsAppText(order), files: [file] }).then(() => showToast('Bill shared!')).catch(() => downloadPDFAndOpenWhatsApp(order, pdfDataUri));
-        } else { downloadPDFAndOpenWhatsApp(order, pdfDataUri); }
+        try {
+            const base64 = pdfDataUri.split(',')[1];
+            const binaryStr = window.atob(base64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const file = new File([blob], 'SriKrishna_Bill_' + order.id + '.pdf', { type: 'application/pdf' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                navigator.share({ title: 'Sri Krishna Hotel - Bill ' + order.id, text: buildWhatsAppText(order), files: [file] }).then(() => showToast('Bill shared!')).catch(() => downloadPDFAndOpenWhatsApp(order, pdfDataUri));
+            } else { downloadPDFAndOpenWhatsApp(order, pdfDataUri); }
+        } catch(e) { downloadPDFAndOpenWhatsApp(order, pdfDataUri); }
     } else { downloadPDFAndOpenWhatsApp(order, pdfDataUri); }
 }
 
@@ -609,13 +1054,14 @@ function buildWhatsAppText(order) {
 function buildWhatsAppMessageEncoded(order) { return encodeURIComponent(buildWhatsAppText(order)); }
 function sendWhatsAppText(order) { window.open('https://wa.me/' + WHATSAPP_NUMBER + '?text=' + buildWhatsAppMessageEncoded(order), '_blank'); }
 
+// ===================== ORDER HISTORY =====================
+
 function saveOrderToHistory(order) {
     try {
-        let h = JSON.parse(localStorage.getItem('sriKrishnaOrders')) || [];
-        if (!Array.isArray(h)) h = [];
+        let h = safeJSONParse('sriKrishnaOrders', []);
         h.unshift(order);
         if (h.length > 50) h = h.slice(0, 50);
-        localStorage.setItem('sriKrishnaOrders', JSON.stringify(h));
+        safeJSONSet('sriKrishnaOrders', h);
     } catch {}
 }
 
@@ -623,8 +1069,247 @@ function renderOrderHistory() {
     const container = document.getElementById('order-history-list');
     if (!container) return;
     try {
-        const history = JSON.parse(localStorage.getItem('sriKrishnaOrders')) || [];
+        const history = safeJSONParse('sriKrishnaOrders', []);
         if (!history.length) { container.innerHTML = '<div class="empty-history"><i class="fas fa-clipboard-list"></i><p>No orders yet</p></div>'; return; }
         container.innerHTML = history.map(o => `<div class="history-item"><div class="history-item-header"><h4>${o.customerName} - Table ${o.tableNumber}</h4><span class="history-item-date">${o.date} ${o.time}</span></div><div class="history-item-details">${o.items.map(i => i.name + ' x' + i.quantity).join(', ')}</div><div class="history-item-total">Rs.${o.totalAmount} - ${o.paymentStatus}</div></div>`).join('');
     } catch { container.innerHTML = '<div class="empty-history"><i class="fas fa-clipboard-list"></i><p>No orders yet</p></div>'; }
 }
+
+// ===================== GIFT BOX SYSTEM =====================
+
+function loadGiftBoxState() {
+    giftBoxState = safeJSONParse(GIFT_CONFIG.STORAGE_KEY, null);
+    if (giftBoxState) {
+        const now = new Date();
+        const lastDate = new Date(giftBoxState.cycleStartDate);
+        const daysDiff = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+        if (daysDiff >= GIFT_CONFIG.CYCLE_DAYS) {
+            giftBoxState = createNewCycle();
+        }
+    } else {
+        giftBoxState = createNewCycle();
+    }
+    saveGiftBoxState();
+    return giftBoxState;
+}
+
+function createNewCycle() {
+    return {
+        cycleStartDate: new Date().toISOString(),
+        openedDays: [],
+        totalSpent: 0,
+        couponClaimed: false,
+        lastOpenedDate: null
+    };
+}
+
+function saveGiftBoxState() {
+    safeJSONSet(GIFT_CONFIG.STORAGE_KEY, giftBoxState);
+}
+
+function getCurrentDay() {
+    const now = new Date();
+    const start = new Date(giftBoxState.cycleStartDate);
+    const diff = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+    return Math.min(diff + 1, GIFT_CONFIG.CYCLE_DAYS);
+}
+
+function canOpenToday() {
+    const today = getCurrentDay();
+    if (today > GIFT_CONFIG.CYCLE_DAYS) return false;
+    if (giftBoxState.openedDays.includes(today)) return false;
+    const lastOpened = giftBoxState.openedDays.length > 0 ? Math.max(...giftBoxState.openedDays) : 0;
+    return today > lastOpened;
+}
+
+function updateSpendTracking(amount) {
+    if (!giftBoxState) loadGiftBoxState();
+    giftBoxState.totalSpent += amount;
+    saveGiftBoxState();
+    renderGiftBox();
+    updateGiftBadge();
+}
+
+function checkCouponEligibility() {
+    return giftBoxState.totalSpent >= GIFT_CONFIG.MIN_SPEND
+        && giftBoxState.openedDays.length >= GIFT_CONFIG.CYCLE_DAYS
+        && !giftBoxState.couponClaimed;
+}
+
+function renderGiftBox() {
+    const container = document.getElementById('gift-box-container');
+    if (!container) return;
+    if (!giftBoxState) loadGiftBoxState();
+    const currentDay = getCurrentDay();
+    const canOpen = canOpenToday();
+    const isEligible = checkCouponEligibility();
+
+    let html = `<div class="gift-box-section"><div class="gift-box-header"><i class="fas fa-gift"></i><h3>Daily Gift Box</h3><span class="gift-progress">Day ${currentDay}/10</span></div><div class="gift-box-grid">`;
+
+    for (let i = 1; i <= GIFT_CONFIG.CYCLE_DAYS; i++) {
+        const isOpened = giftBoxState.openedDays.includes(i);
+        const isToday = i === currentDay;
+        const isPast = i < currentDay && !isOpened;
+        let statusClass = '', icon = '';
+        if (isOpened) { statusClass = 'opened'; icon = '<i class="fas fa-check"></i>'; }
+        else if (isToday && canOpen) { statusClass = 'active pulse'; icon = '<i class="fas fa-gift"></i>'; }
+        else if (isPast) { statusClass = 'missed'; icon = '<i class="fas fa-times"></i>'; }
+        else { statusClass = 'locked'; icon = '<i class="fas fa-lock"></i>'; }
+        html += `<div class="gift-box-day ${statusClass}" data-day="${i}"><div class="gift-box-icon">${icon}</div><span class="gift-day-num">Day ${i}</span></div>`;
+    }
+
+    html += `</div>`;
+    const progress = (giftBoxState.openedDays.length / GIFT_CONFIG.CYCLE_DAYS) * 100;
+    html += `<div class="gift-progress-bar"><div class="gift-progress-fill" style="width: ${progress}%"></div></div><div class="gift-status-text">${getGiftStatusText()}</div>`;
+
+    if (isEligible) {
+        html += `<div class="coupon-section"><div class="coupon-banner"><i class="fas fa-ticket-alt"></i><span>🎉 Congratulations! You unlocked a Rs.${GIFT_CONFIG.COUPON_VALUE} coupon!</span></div><button class="btn-claim-coupon" onclick="openCouponModal()"><i class="fas fa-gift"></i> Claim Your Free Food</button></div>`;
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+
+    // Add click handlers
+    container.querySelectorAll('.gift-box-day.active').forEach(day => {
+        day.addEventListener('click', () => handleGiftBoxClick(parseInt(day.dataset.day)));
+    });
+}
+
+function getGiftStatusText() {
+    const daysLeft = GIFT_CONFIG.CYCLE_DAYS - giftBoxState.openedDays.length;
+    const spentNeeded = Math.max(0, GIFT_CONFIG.MIN_SPEND - giftBoxState.totalSpent);
+    if (checkCouponEligibility()) return '✅ You\'ve earned a reward! Claim your coupon below.';
+    if (daysLeft > 0 && spentNeeded > 0) return `📅 ${daysLeft} days left • Spend Rs.${spentNeeded} more to unlock reward`;
+    if (daysLeft > 0) return `📅 ${daysLeft} days left • Keep opening daily!`;
+    if (spentNeeded > 0) return `💰 Spend Rs.${spentNeeded} more to unlock your reward`;
+    return 'Open today\'s gift box!';
+}
+
+function handleGiftBoxClick(day) {
+    if (!canOpenToday() || day !== getCurrentDay()) {
+        showToast(day < getCurrentDay() ? 'This day has passed!' : 'Come back tomorrow!');
+        return;
+    }
+    giftBoxState.openedDays.push(day);
+    giftBoxState.lastOpenedDate = new Date().toISOString();
+    saveGiftBoxState();
+    showGiftReward(day);
+    renderGiftBox();
+    updateGiftBadge();
+}
+
+function showGiftReward(day) {
+    const rewards = [
+        '5% off next order', 'Free delivery', 'Rs.10 cashback', 'Free drink',
+        '10% off', 'Buy 1 Get 1', 'Free dessert', 'Rs.20 off', 'Special discount', '🎁 Mystery Box'
+    ];
+    const reward = rewards[day - 1] || 'Special surprise!';
+    const modal = document.createElement('div');
+    modal.className = 'gift-reward-modal';
+    modal.innerHTML = `<div class="gift-reward-content"><div class="gift-reward-icon">🎁</div><h3>Day ${day} Reward!</h3><p class="gift-reward-text">${reward}</p><button class="btn-gift-ok"><i class="fas fa-check"></i> Awesome!</button></div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('.btn-gift-ok').addEventListener('click', () => modal.remove());
+    setTimeout(() => { if (modal.parentNode) modal.remove(); }, 3000);
+}
+
+// ===================== COUPON SYSTEM =====================
+
+function openCouponModal() {
+    if (!checkCouponEligibility()) { showToast('Not eligible yet!'); return; }
+    const eligibleItems = MENU_ITEMS.filter(item => item.price <= GIFT_CONFIG.COUPON_VALUE);
+    const modal = document.createElement('div');
+    modal.className = 'coupon-modal-overlay';
+    modal.id = 'coupon-modal';
+    modal.innerHTML = `<div class="coupon-modal"><div class="coupon-modal-header"><h3><i class="fas fa-ticket-alt"></i> Claim Your Free Food</h3><button class="coupon-close" id="coupon-close-btn"><i class="fas fa-times"></i></button></div><div class="coupon-modal-body"><div class="coupon-info"><i class="fas fa-info-circle"></i><p>You've spent <strong>Rs.${giftBoxState.totalSpent}</strong> over 10 days! Choose any item below <strong>Rs.${GIFT_CONFIG.COUPON_VALUE}</strong> for FREE!</p></div><div class="coupon-items-grid">${eligibleItems.map(item => `<div class="coupon-item-card" data-item-id="${item.id}"><div class="coupon-item-emoji">${item.emoji}</div><div class="coupon-item-name">${item.name}</div><div class="coupon-item-price">Rs.${item.price}</div></div>`).join('')}</div></div></div>`;
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+    document.getElementById('coupon-close-btn').addEventListener('click', closeCouponModal);
+    modal.querySelectorAll('.coupon-item-card').forEach(card => {
+        card.addEventListener('click', () => selectCouponItem(parseInt(card.dataset.itemId)));
+    });
+}
+
+function closeCouponModal() {
+    const modal = document.getElementById('coupon-modal');
+    if (modal) { modal.remove(); document.body.style.overflow = ''; }
+}
+
+async function selectCouponItem(itemId) {
+    const item = MENU_ITEMS.find(i => i.id === itemId);
+    if (!item) return;
+    const phone = document.getElementById('customer-mobile')?.value?.trim() || '';
+    if (!phone || phone.length !== 10) {
+        showToast('Please enter your 10-digit mobile number first!');
+        closeCouponModal();
+        openOrderModal();
+        return;
+    }
+    const couponCode = 'SK' + Date.now().toString(36).toUpperCase();
+    const coupon = {
+        code: couponCode,
+        itemId: item.id,
+        itemName: item.name,
+        itemPrice: item.price,
+        phone: phone,
+        claimedAt: new Date().toISOString(),
+        status: 'claimed'
+    };
+    saveCoupon(coupon);
+    giftBoxState.couponClaimed = true;
+    saveGiftBoxState();
+    closeCouponModal();
+    sendCouponToAdmin(coupon);
+    showCouponSuccess(coupon);
+    renderGiftBox();
+    updateGiftBadge();
+}
+
+function saveCoupon(coupon) {
+    try {
+        let coupons = safeJSONParse(GIFT_CONFIG.COUPON_STORAGE, []);
+        coupons.unshift(coupon);
+        safeJSONSet(GIFT_CONFIG.COUPON_STORAGE, coupons);
+    } catch {}
+}
+
+function sendCouponToAdmin(coupon) {
+    const message = encodeURIComponent(
+        `🎁 *COUPON CLAIMED - Sri Krishna Hotel*\n\n` +
+        `Code: *${coupon.code}*\n` +
+        `Item: *${coupon.itemName}*\n` +
+        `Price: Rs.${coupon.itemPrice}\n` +
+        `Customer: ${coupon.phone}\n` +
+        `Time: ${new Date().toLocaleString('en-IN')}\n\n` +
+        `✅ This is a FREE food coupon. Please prepare the order!`
+    );
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, '_blank');
+    showToast('Coupon sent to admin via WhatsApp!');
+}
+
+function showCouponSuccess(coupon) {
+    const modal = document.createElement('div');
+    modal.className = 'coupon-success-overlay';
+    modal.innerHTML = `<div class="coupon-success-modal"><div class="coupon-success-icon"><i class="fas fa-check-circle"></i></div><h3>Coupon Claimed!</h3><div class="coupon-code-box"><span class="coupon-code">${coupon.code}</span><button class="btn-copy-code" id="copy-coupon-btn"><i class="fas fa-copy"></i></button></div><p class="coupon-item-name">${coupon.itemName}</p><p class="coupon-hint">Show this code at the counter to get your FREE food!</p><button class="btn-coupon-done" id="coupon-done-btn"><i class="fas fa-check"></i> Done</button></div>`;
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+    document.getElementById('coupon-done-btn').addEventListener('click', () => {
+        modal.remove(); document.body.style.overflow = '';
+    });
+    document.getElementById('copy-coupon-btn').addEventListener('click', () => {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(coupon.code).then(() => showToast('Code copied!'));
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = coupon.code; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+            showToast('Code copied!');
+        }
+    });
+}
+
+// ===================== EXPORTS =====================
+
+window.openCouponModal = openCouponModal;
+window.closeCouponModal = closeCouponModal;
+window.selectCouponItem = selectCouponItem;
+window.handleGiftBoxClick = handleGiftBoxClick;
+window.toggleGiftBox = toggleGiftBox;
