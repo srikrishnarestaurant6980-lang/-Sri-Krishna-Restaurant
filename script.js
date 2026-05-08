@@ -35,7 +35,7 @@ const HOTEL_NAME = "Sri Krishna Hotel";
 const PHONE_NUMBER = "98433 36980";
 const WHATSAPP_NUMBER = "919843336980";
 const UPI_ID = "9843336980@ibl";
-const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&q=40&fm=webp";
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&q=30&fm=webp";
 
 const UPI_APPS = Object.freeze([
     { id: 'gpay',      name: 'GPay',      icon: 'https://img.icons8.com/color/96/google-pay.png',  color: '#4285F4', pkg: 'com.google.android.apps.nbu.paisa.user' },
@@ -90,8 +90,7 @@ function init() {
     requestAnimationFrame(() => { renderMenu(); updateCartDisplay(); });
     const idle = window.requestIdleCallback || (fn => setTimeout(fn, 50));
     idle(() => startHeroSlider());
-    // Initialize gift box with login tracking
-    setTimeout(initGiftBoxWithLogin, 300);
+    idle(() => initGiftBoxWithLogin());
 }
 
 function setupImgObserver() {
@@ -174,9 +173,9 @@ function showGiftPhoneLoginModal() {
 
         // Show loading state
         btn.disabled = true;
-        btn.textContent = 'Checking...';
+        btn.textContent = '🔍 Firebase Check...';
 
-        // Simulate database lookup
+        // Database lookup (Firebase + Local fallback)
         verifyUserPhoneAndSetupGifts(phone, modal);
     });
 
@@ -188,33 +187,88 @@ function showGiftPhoneLoginModal() {
     setTimeout(() => input.focus(), 100);
 }
 
-function verifyUserPhoneAndSetupGifts(phone, modal) {
-    // Simulate database check
-    const users = {
-        '9843336980': { name: 'Test User 1', totalSpent: 1500, eligible: true },
-        '9876543210': { name: 'Test User 2', totalSpent: 1200, eligible: true }
-    };
-
-    const user = users[phone];
+async function verifyUserPhoneAndSetupGifts(phone, modal) {
+    const btn = modal.querySelector('#gift-phone-submit');
     
-    if (user && user.totalSpent >= 1000) {
-        // Store phone and load gifts
-        safeJSONSet('giftUserPhone', phone);
-        safeJSONSet('giftUserName', user.name);
-        safeJSONSet('giftUserSpent', user.totalSpent);
-        
-        // Remove modal
-        modal.remove();
+    // ✅ FIX: Firebase-ல check பண்றோம் - hardcode இல்ல
+    try {
+        let userData = null;
 
-        // Show reward status card (one-time display after login)
-        showRewardStatusCard(user, phone);
+        // Firebase available-ஆ check பண்று
+        const db = await (typeof window.initFirebase === 'function' ? window.initFirebase() : null);
         
-        // Load gift data
-        loadUserGiftData(phone);
-    } else {
-        // Show not eligible card
-        showNotEligibleCard(modal, phone, user);
+        if (db) {
+            // Firebase-ல orders collection-ல phone number search பண்று
+            try {
+                const { collection, query, where, getDocs } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+                const q = query(collection(db, "orders"), where("customerMobile", "==", phone));
+                const snapshot = await getDocs(q);
+                
+                let totalSpent = 0;
+                let customerName = '';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    totalSpent += (data.totalAmount || 0);
+                    if (!customerName) customerName = data.customerName || '';
+                });
+                
+                if (snapshot.size > 0) {
+                    userData = {
+                        name: customerName || 'Customer',
+                        totalSpent: totalSpent,
+                        eligible: totalSpent >= GIFT_CONFIG.MIN_SPEND
+                    };
+                }
+            } catch(e) {
+                console.error('[Gift] Firebase query error:', e);
+                // Firebase query fail ஆனா localStorage orders check பண்று
+                userData = checkLocalOrders(phone);
+            }
+        } else {
+            // Firebase இல்லைன்னா local orders check
+            userData = checkLocalOrders(phone);
+        }
+
+        if (btn) { btn.disabled = false; btn.textContent = 'Check My Rewards'; }
+
+        if (userData && userData.totalSpent > 0) {
+            safeJSONSet('giftUserPhone', phone);
+            safeJSONSet('giftUserName', userData.name);
+            safeJSONSet('giftUserSpent', userData.totalSpent);
+            modal.remove();
+            showRewardStatusCard(userData, phone);
+            loadUserGiftData(phone);
+        } else {
+            showNotEligibleCard(modal, phone, userData);
+        }
+    } catch(e) {
+        console.error('[Gift] Verify error:', e);
+        if (btn) { btn.disabled = false; btn.textContent = 'Check My Rewards'; }
+        // Error-ல local check
+        const userData = checkLocalOrders(phone);
+        if (userData && userData.totalSpent > 0) {
+            safeJSONSet('giftUserPhone', phone);
+            safeJSONSet('giftUserName', userData.name);
+            safeJSONSet('giftUserSpent', userData.totalSpent);
+            modal.remove();
+            showRewardStatusCard(userData, phone);
+            loadUserGiftData(phone);
+        } else {
+            showNotEligibleCard(modal, phone, null);
+        }
     }
+}
+
+// ✅ Local orders-ல phone number check பண்ற helper
+function checkLocalOrders(phone) {
+    try {
+        const orders = safeJSONParse('sriKrishnaOrders', []);
+        const userOrders = orders.filter(o => o.customerMobile === phone);
+        if (!userOrders.length) return null;
+        const totalSpent = userOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+        const name = userOrders[0].customerName || 'Customer';
+        return { name, totalSpent, eligible: totalSpent >= GIFT_CONFIG.MIN_SPEND };
+    } catch { return null; }
 }
 
 function showRewardStatusCard(user, phone) {
@@ -500,11 +554,21 @@ function showToast(msg) {
     toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
 }
 
+function ensureHeroSlideLoaded(slide) {
+    if (!slide || slide.dataset.bgLoaded === 'true') return;
+    const bg = slide.dataset.bg;
+    if (!bg) return;
+    slide.style.backgroundImage = `url('${bg}')`;
+    slide.dataset.bgLoaded = 'true';
+}
+
 function startHeroSlider() {
     const slides = document.querySelectorAll('.hero-slide');
     const dots = document.querySelectorAll('.hero-dot');
     if (!slides.length) return;
+    ensureHeroSlideLoaded(slides[0]);
     function goto(idx) {
+        ensureHeroSlideLoaded(slides[idx]);
         slides[currentSlide].classList.remove('active');
         if (dots[currentSlide]) dots[currentSlide].classList.remove('active');
         currentSlide = idx;
@@ -550,15 +614,21 @@ function handleUpiAppClick(appId) {
     }
     else { showToast('Please open on mobile or scan QR'); }
     document.getElementById('qr-payment-section').style.display = 'block';
-    updatePaymentStatus('paid');
-    paymentStatus = 'paid';
+    // ✅ FIX: UPI app திறந்த பிறகும் confirm வரும் - paymentStatus = 'upi_initiated' மட்டும்
+    updatePaymentStatus('upi_initiated');
+    paymentStatus = 'upi_initiated';
     document.getElementById('btn-submit-order').disabled = false;
 }
 
 function updatePaymentStatus(status) {
     const el = document.getElementById('payment-status');
     if (!el) return;
-    const map = { paid: '<span class="status-paid">Payment App Selected Submit Order now</span>', pending: '<span class="status-pending">Select a UPI App to enable payment</span>', cash: '<span class="status-cash">Cash on Delivery</span>' };
+    const map = { 
+        paid: '<span class="status-paid">✅ Payment Confirmed! Submit Order now</span>', 
+        upi_initiated: '<span class="status-upi-initiated">⏳ UPI App திறந்தது - Pay பண்ணி திரும்பி வந்து Submit பண்ணுங்க</span>',
+        pending: '<span class="status-pending">Select a UPI App to enable payment</span>', 
+        cash: '<span class="status-cash">Cash on Delivery</span>' 
+    };
     el.innerHTML = map[status] || '';
 }
 
@@ -655,8 +725,9 @@ function setupEventListeners() {
                 document.getElementById('online-payment-section').style.display = 'block';
                 document.getElementById('cash-payment-section').style.display = 'none';
                 document.getElementById('qr-payment-section').style.display = 'none';
-                paymentStatus = 'paid'; // Don't block submit - accept online payment directly
-                updatePaymentStatus('paid');
+                // ✅ FIX: Online select ஆனா உடனே paid ஆகாது - UPI app select பண்ணணும்
+                paymentStatus = 'pending';
+                updatePaymentStatus('pending');
                 document.getElementById('btn-submit-order').disabled = false;
             } else {
                 document.getElementById('online-payment-section').style.display = 'none';
@@ -787,6 +858,10 @@ function closeContactModal() { document.getElementById('contact-modal')?.classLi
 
 function openOrderModal() {
     renderUpiAppGrid();
+    if (typeof window.initFirebase === 'function' && !window.db) {
+        const idle = window.requestIdleCallback || (fn => setTimeout(fn, 150));
+        idle(() => window.initFirebase());
+    }
     document.getElementById('order-modal')?.classList.add('open');
     document.getElementById('order-modal-overlay')?.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -840,9 +915,20 @@ function submitOrder() {
         return;
     }
     
-    // SECURITY: Validate payment method - allow online without specific UPI app selection
+    // SECURITY: Validate payment method - require UPI app selection for online
     if (method === 'online') {
-        paymentStatus = 'paid'; // Accept online payment regardless of which app
+        if (!selectedUpiApp) {
+            showToast('Please select a UPI app first!');
+            return;
+        }
+        if (paymentStatus !== 'upi_initiated') {
+            showToast('UPI app-ஐ click பண்ணி payment பண்ணுங்க!');
+            return;
+        }
+        // ✅ FIX: Payment confirm பண்ணணும்
+        const confirmed = confirm('UPI payment complete ஆச்சா?\n\nOK = Payment பண்ணாச்சு, Submit பண்ற\nCancel = இல்ல, திரும்பி payment பண்றேன்');
+        if (!confirmed) return;
+        paymentStatus = 'paid';
     }
 
     // SECURITY: Check cart not empty
