@@ -122,11 +122,9 @@
 
     .product-card{background:var(--card-bg);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--border);display:flex;flex-direction:column}
     .product-card:active{transform:scale(0.985)}
-    .product-image{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#e8e8e8}
-    .product-image img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.2s}
+    .product-image{position:relative;width:100%;aspect-ratio:1;overflow:hidden;background:#e8e8e8}
+    .product-image img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity 0.2s}
     .product-image img.loaded{opacity:1}
-    .product-image-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:3rem;background:linear-gradient(135deg,#fff3e0,#ffe0b2);z-index:1}
-    .product-image img.loaded + .product-image-fallback{display:none}
     .product-badge{position:absolute;top:8px;left:8px;background:var(--primary);color:#fff;padding:2px 8px;border-radius:50px;font-size:0.65rem;font-weight:600;text-transform:uppercase;z-index:2}
     .product-info{padding:12px;flex:1;display:flex;flex-direction:column}
     .product-name{font-size:1rem;font-weight:700;margin-bottom:3px}
@@ -333,9 +331,9 @@
 
     @media(min-width:480px){.menu-container{grid-template-columns:repeat(2,1fr)}.hero-banner{height:220px}}
     @media(min-width:640px){.header-top{padding:10px 16px}.hotel-title{font-size:1.1rem}.logo{width:52px;height:52px}}
-    @media(min-width:768px){.menu-container{grid-template-columns:repeat(3,1fr)}.hero-banner{height:260px}.hero-content h2{font-size:1.3rem}}
-    @media(min-width:1024px){.menu-container{grid-template-columns:repeat(4,1fr)}.hero-banner{height:300px}}
-    @media(min-width:1440px){.menu-container{grid-template-columns:repeat(5,1fr)}.hero-banner{height:340px}}
+    @media(min-width:768px){.menu-container{grid-template-columns:repeat(2,1fr)}.hero-banner{height:260px}.hero-content h2{font-size:1.3rem}}
+    @media(min-width:1024px){.menu-container{grid-template-columns:repeat(3,1fr)}.hero-banner{height:300px}}
+    @media(min-width:1440px){.menu-container{grid-template-columns:repeat(4,1fr)}.hero-banner{height:340px}}
     </style>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
