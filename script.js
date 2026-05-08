@@ -90,7 +90,8 @@ function init() {
     requestAnimationFrame(() => { renderMenu(); updateCartDisplay(); });
     const idle = window.requestIdleCallback || (fn => setTimeout(fn, 50));
     idle(() => startHeroSlider());
-    idle(() => initGiftBoxWithLogin());
+    // Initialize gift box with login tracking
+    setTimeout(initGiftBoxWithLogin, 300);
 }
 
 function setupImgObserver() {
@@ -438,7 +439,9 @@ function renderMenu() {
         const qty = qtyMap.get(item.id) || 0;
         const eager = idx < 2;
         const imgAttr = eager ? `src="${item.image}"` : `src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="${item.image}"`;
-        parts.push(`<div class="product-card" data-id="${item.id}"><div class="product-image"><img ${imgAttr} alt="${item.name}" loading="${eager ? 'eager' : 'lazy'}" width="400" height="225" decoding="async" onerror="this.style.display='none'" onload="this.classList.add('loaded')"><span class="product-badge">${item.category}</span></div><div class="product-info"><h3 class="product-name">${item.name}</h3><p class="product-price">Rs.${item.price}</p><div class="product-actions"><div class="quantity-control"><button class="qty-btn minus" data-id="${item.id}" ${qty <= 0 ? 'disabled' : ''}>-</button><span class="qty-value">${qty}</span><button class="qty-btn plus" data-id="${item.id}">+</button></div><button class="btn-add-cart ${qty > 0 ? 'added' : ''}" data-id="${item.id}"><i class="fas ${qty > 0 ? 'fa-check' : 'fa-cart-plus'}"></i><span>${qty > 0 ? 'Added' : 'Add'}</span></button></div></div></div>`);
+        // ✅ FIX: Image fail ஆனா emoji fallback காட்டும் - blank space இல்ல
+        const onErr = `this.onerror=null;this.style.display='none';this.parentElement.querySelector('.img-emoji-fallback').style.display='flex'`;
+        parts.push(`<div class="product-card" data-id="${item.id}"><div class="product-image"><img ${imgAttr} alt="${item.name}" loading="${eager ? 'eager' : 'lazy'}" width="400" height="225" decoding="async" onerror="${onErr}" onload="this.classList.add('loaded')"><div class="img-emoji-fallback" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;font-size:3.5rem;background:linear-gradient(135deg,#fff3e0,#ffe0b2)">${item.emoji}</div><span class="product-badge">${item.category}</span></div><div class="product-info"><h3 class="product-name">${item.name}</h3><p class="product-price">Rs.${item.price}</p><div class="product-actions"><div class="quantity-control"><button class="qty-btn minus" data-id="${item.id}" ${qty <= 0 ? 'disabled' : ''}>-</button><span class="qty-value">${qty}</span><button class="qty-btn plus" data-id="${item.id}">+</button></div><button class="btn-add-cart ${qty > 0 ? 'added' : ''}" data-id="${item.id}"><i class="fas ${qty > 0 ? 'fa-check' : 'fa-cart-plus'}"></i><span>${qty > 0 ? 'Added' : 'Add'}</span></button></div></div></div>`);
     });
     menuContainer.innerHTML = parts.join('');
     if (imgObserver) menuContainer.querySelectorAll('img[data-src]').forEach(img => imgObserver.observe(img));
@@ -554,21 +557,11 @@ function showToast(msg) {
     toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
 }
 
-function ensureHeroSlideLoaded(slide) {
-    if (!slide || slide.dataset.bgLoaded === 'true') return;
-    const bg = slide.dataset.bg;
-    if (!bg) return;
-    slide.style.backgroundImage = `url('${bg}')`;
-    slide.dataset.bgLoaded = 'true';
-}
-
 function startHeroSlider() {
     const slides = document.querySelectorAll('.hero-slide');
     const dots = document.querySelectorAll('.hero-dot');
     if (!slides.length) return;
-    ensureHeroSlideLoaded(slides[0]);
     function goto(idx) {
-        ensureHeroSlideLoaded(slides[idx]);
         slides[currentSlide].classList.remove('active');
         if (dots[currentSlide]) dots[currentSlide].classList.remove('active');
         currentSlide = idx;
@@ -858,10 +851,6 @@ function closeContactModal() { document.getElementById('contact-modal')?.classLi
 
 function openOrderModal() {
     renderUpiAppGrid();
-    if (typeof window.initFirebase === 'function' && !window.db) {
-        const idle = window.requestIdleCallback || (fn => setTimeout(fn, 150));
-        idle(() => window.initFirebase());
-    }
     document.getElementById('order-modal')?.classList.add('open');
     document.getElementById('order-modal-overlay')?.classList.add('open');
     document.body.style.overflow = 'hidden';
