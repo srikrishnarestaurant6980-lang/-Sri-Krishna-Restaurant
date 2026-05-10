@@ -34,7 +34,7 @@ const MENU_ITEMS = Object.freeze([
     { id: 26, name: "Veg Noodles",       price: 60,  category: "Noodles",     image: "veg noodles.webp", emoji: "🍜" },
     { id: 27, name: "Egg Noodles",       price: 80,  category: "Noodles",     image: "eggnoodles.webp", emoji: "🍜" },
     { id: 28, name: "Chicken Semiya",    price: 90,  category: "Semiya",      image: "chickennoodles.webp", emoji: "🍝" },
-    { id: 29, name: "Egg Semiya",        price: 60,  category: "Semiya",      image: "veg-semiya.webp", emoji: "🍝" },
+    { id: 29, name: "Egg Semiya",        price: 60,  category: "Semiya",      image: "egg-semiya.webp", emoji: "🍝" },
     { id: 30, name: "Veg Semiya",        price: 60,  category: "Semiya",      image: "veg-semiya.webp", emoji: "🍝" }
 ]);
 
