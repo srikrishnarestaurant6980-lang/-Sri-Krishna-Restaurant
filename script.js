@@ -119,6 +119,16 @@ function init() {
     idle(() => startHeroSlider());
     setTimeout(initGiftBoxWithLogin, 300);
     injectFreeDeliveryBanner();
+    // Show gift box by default if user is logged in
+    const userPhone = safeJSONParse('giftUserPhone', null);
+    if (userPhone) {
+        const wrapper = document.getElementById('gift-box-wrapper');
+        if (wrapper) {
+            wrapper.classList.add('show');
+            wrapper.style.display = 'block';
+            giftBoxVisible = true;
+        }
+    }
 }
 
 // ===================== FREE DELIVERY BANNER =====================
@@ -198,7 +208,7 @@ function showDeliveryResult(eligible, distOrMsg) {
     popup.id = 'delivery-result-popup';
     popup.className = `delivery-result-popup ${cls}`;
     popup.innerHTML = `
-        <button class="drp-close" id="drp-close">✕</button>
+        <button class="drp-close" id="drp-close"><i class="fas fa-times"></i></button>
         <div class="drp-icon">${icon}</div>
         <h4>${title}</h4>
         <p>${body}</p>
@@ -232,7 +242,7 @@ function showGiftPhoneLoginModal() {
             <p>Enter your phone number to check your rewards</p>
             <input type="tel" id="gift-phone-input" maxlength="10" placeholder="10-digit number" inputmode="numeric">
             <button id="gift-phone-submit">Check My Rewards</button>
-            <button id="gift-phone-cancel" style="width:100%;padding:12px;background:#f5f5f5;color:#666;border-radius:50px;font-weight:600;font-size:0.95rem;border:none;cursor:pointer;margin-top:-8px;">✕ Cancel</button>
+            <button id="gift-phone-cancel" style="width:100%;padding:12px;background:#f5f5f5;color:#666;border-radius:50px;font-weight:600;font-size:0.95rem;border:none;cursor:pointer;margin-top:-8px;"><i class="fas fa-times"></i> Cancel</button>
             <p class="gift-info-text">Spend ₹1000+ to unlock gifts • Spend ₹2000+ for bigger rewards!</p>
         </div>
     `;
@@ -428,9 +438,11 @@ function toggleGiftBox() {
     giftBoxVisible = !giftBoxVisible;
     if (giftBoxVisible) {
         wrapper.classList.add('show');
+        wrapper.style.display = 'block';
         setTimeout(() => wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     } else {
         wrapper.classList.remove('show');
+        wrapper.style.display = 'none';
     }
     renderGiftBox();
     updateGiftBadge();
@@ -822,6 +834,14 @@ function setupEventListeners() {
     const giftFloatBtn = document.getElementById('gift-float-btn');
     if (giftFloatBtn) giftFloatBtn.addEventListener('click', toggleGiftBox);
 
+    // Header gift button click
+    const giftHeaderBtn = document.getElementById('gift-header-btn');
+    if (giftHeaderBtn) giftHeaderBtn.addEventListener('click', toggleGiftBox);
+
+    // Offer strip gift box click
+    const offerGiftBox = document.getElementById('offer-gift-box');
+    if (offerGiftBox) offerGiftBox.addEventListener('click', toggleGiftBox);
+
     document.addEventListener('keydown', function(e) {
         if (e.key !== 'Escape' && e.key !== 'Esc') return;
         const orderModal = document.getElementById('order-modal');
@@ -1177,18 +1197,46 @@ function renderGiftBox() {
     const canOpen     = canOpenToday();
     const couponValue = checkCouponEligibility();
 
-    let html = `<div class="gift-box-section"><div class="gift-box-header"><i class="fas fa-gift"></i><h3>Daily Gift Box</h3><span class="gift-progress">Day ${currentDay}/10</span></div><div class="gift-box-grid">`;
+    const rewards = [
+        {day:1, icon:'🎯', desc:'5% OFF next order'},
+        {day:2, icon:'🚚', desc:'FREE Delivery'},
+        {day:3, icon:'💰', desc:'₹10 Cashback'},
+        {day:4, icon:'🥤', desc:'FREE Drink'},
+        {day:5, icon:'🎯', desc:'10% OFF'},
+        {day:6, icon:'🎁', desc:'Buy 1 Get 1'},
+        {day:7, icon:'🍰', desc:'FREE Dessert'},
+        {day:8, icon:'💰', desc:'₹20 OFF'},
+        {day:9, icon:'🎉', desc:'Special Discount'},
+        {day:10, icon:'🎊', desc:'MYSTERY BOX'}
+    ];
+
+    let html = `<div class="gift-box-section">
+        <div class="gift-box-header">
+            <i class="fas fa-gift"></i>
+            <h3>🎁 Daily Gift Box - 10 Day Rewards!</h3>
+            <span class="gift-progress">Day ${currentDay}/10</span>
+        </div>
+        <div class="gift-offers-info" style="background:#fff3e0;border:2px dashed #ff9800;border-radius:12px;padding:12px;margin-bottom:14px;text-align:center">
+            <div style="font-size:0.9rem;color:#e65100;font-weight:700;margin-bottom:6px">📱 Open 1 box daily • Collect rewards!</div>
+            <div style="font-size:0.8rem;color:#666">💰 Spend ₹1000 = ₹50 coupon | ₹2000 = ₹100 coupon</div>
+        </div>
+        <div class="gift-box-grid">`;
 
     for (let i = 1; i <= GIFT_CONFIG.CYCLE_DAYS; i++) {
         const isOpened = giftBoxState.openedDays.includes(i);
         const isToday  = i === currentDay;
         const isPast   = i < currentDay && !isOpened;
+        const reward = rewards[i-1];
         let statusClass = '', icon = '';
         if (isOpened)            { statusClass = 'opened';       icon = '<i class="fas fa-check"></i>'; }
         else if (isToday && canOpen) { statusClass = 'active pulse'; icon = '<i class="fas fa-gift"></i>'; }
         else if (isPast)         { statusClass = 'missed';       icon = '<i class="fas fa-times"></i>'; }
         else                     { statusClass = 'locked';       icon = '<i class="fas fa-lock"></i>'; }
-        html += `<div class="gift-box-day ${statusClass}" data-day="${i}"><div class="gift-box-icon">${icon}</div><span class="gift-day-num">Day ${i}</span></div>`;
+        html += `<div class="gift-box-day ${statusClass}" data-day="${i}" title="${reward.desc}">
+            <div class="gift-box-icon">${isOpened ? '✅' : reward.icon}</div>
+            <span class="gift-day-num" style="font-size:0.6rem;font-weight:600">Day ${i}</span>
+            <span style="font-size:0.55rem;color:#888;text-align:center;line-height:1.1;margin-top:2px">${reward.desc}</span>
+        </div>`;
     }
 
     html += `</div>`;
@@ -1220,19 +1268,24 @@ function getGiftStatusText() {
     const spent       = giftBoxState.totalSpent;
     const couponValue = checkCouponEligibility();
 
-    if (couponValue) return `✅ You've earned a ₹${couponValue} reward! Claim your free food below.`;
-
-    let spendHint = '';
-    if (spent < GIFT_CONFIG.TIER1_SPEND) {
-        spendHint = `Spend ₹${GIFT_CONFIG.TIER1_SPEND - spent} more for ₹50 reward • ₹${GIFT_CONFIG.TIER2_SPEND - spent} more for ₹100 reward`;
-    } else if (spent < GIFT_CONFIG.TIER2_SPEND) {
-        spendHint = `Spend ₹${GIFT_CONFIG.TIER2_SPEND - spent} more to upgrade to ₹100 reward`;
-    } else {
-        spendHint = 'Keep opening daily to claim your ₹100 reward!';
+    if (couponValue) {
+        return `🎉 CONGRATULATIONS! You've earned a ₹${couponValue} FREE FOOD reward!\n\n📱 Open any box daily (Day 1-10) to collect rewards\n💰 Spend ₹1000 = ₹50 coupon | ₹2000 = ₹100 coupon`;
     }
 
-    if (daysLeft > 0) return `📅 ${daysLeft} days left • ${spendHint}`;
-    return `💰 ${spendHint}`;
+    let status = `📅 Day ${getCurrentDay()}/10 • ${daysLeft} days remaining\n\n`;
+
+    if (spent < GIFT_CONFIG.TIER1_SPEND) {
+        status += `💳 Spend ₹${GIFT_CONFIG.TIER1_SPEND - spent} more = ₹50 FREE food coupon\n`;
+        status += `💳 Spend ₹${GIFT_CONFIG.TIER2_SPEND - spent} more = ₹100 FREE food coupon`;
+    } else if (spent < GIFT_CONFIG.TIER2_SPEND) {
+        status += `✅ ₹50 coupon UNLOCKED!\n`;
+        status += `💳 Spend ₹${GIFT_CONFIG.TIER2_SPEND - spent} more = ₹100 coupon (upgrade!)`;
+    } else {
+        status += `✅ ₹100 coupon UNLOCKED!\n`;
+        status += `🎁 Open all 10 days to claim your reward!`;
+    }
+
+    return status;
 }
 
 function handleGiftBoxClick(day) {
