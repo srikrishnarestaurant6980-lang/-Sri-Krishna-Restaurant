@@ -95,7 +95,10 @@ function safeJSONSet(key, value) {
 function getTotal() { return cart.reduce((s, i) => s + i.price * i.quantity, 0); }
 
 function getMenuImageSrc(image) {
-    return /^https?:\/\//i.test(image) ? image : `img/${image}`;
+    // If already a full URL (http/https), use as-is
+    if (/^https?:\/\//i.test(image)) return image;
+    // For local files, use as-is (no img/ prefix)
+    return image;
 }
 
 function getDistanceKm(lat1, lng1, lat2, lng2) {
@@ -125,16 +128,7 @@ function init() {
     idle(() => startHeroSlider());
     setTimeout(initGiftBoxWithLogin, 300);
     injectFreeDeliveryBanner();
-    // Show gift box by default if user is logged in
-    const userPhone = safeJSONParse('giftUserPhone', null);
-    if (userPhone) {
-        const wrapper = document.getElementById('gift-box-wrapper');
-        if (wrapper) {
-            wrapper.classList.add('show');
-            wrapper.style.display = 'block';
-            giftBoxVisible = true;
-        }
-    }
+    // Gift box hidden by default - user must click gift button
 }
 
 // ===================== FREE DELIVERY BANNER =====================
@@ -476,7 +470,7 @@ function renderMenu() {
         const eager = idx < 2;
         const imageSrc = getMenuImageSrc(item.image);
         const imgAttr = eager ? `src="${imageSrc}"` : `src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="${imageSrc}"`;
-        const onErr = `this.onerror=null;this.style.display='none';this.parentElement.querySelector('.img-emoji-fallback').style.display='flex'`;
+        const onErr = `this.onerror=null;this.style.display='none';var p=this.parentElement;if(p){var e=p.querySelector('.img-emoji-fallback');if(e){e.style.display='flex';e.style.position='absolute';e.style.inset='0';e.style.alignItems='center';e.style.justifyContent='center';}}`;
         parts.push(`<div class="product-card" data-id="${item.id}"><div class="product-image"><img ${imgAttr} alt="${item.name}" loading="${eager ? 'eager' : 'lazy'}" width="400" height="225" decoding="async" onerror="${onErr}" onload="this.classList.add('loaded')"><div class="img-emoji-fallback" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;font-size:3.5rem;background:linear-gradient(135deg,#fff3e0,#ffe0b2)">${item.emoji||'🍽️'}</div><span class="product-badge">${item.category}</span></div><div class="product-info"><h3 class="product-name">${item.name}</h3><p class="product-price">Rs.${item.price}</p><div class="product-actions"><div class="quantity-control"><button class="qty-btn minus" data-id="${item.id}" ${qty <= 0 ? 'disabled' : ''}>-</button><span class="qty-value">${qty}</span><button class="qty-btn plus" data-id="${item.id}">+</button></div><button class="btn-add-cart ${qty > 0 ? 'added' : ''}" data-id="${item.id}"><i class="fas ${qty > 0 ? 'fa-check' : 'fa-cart-plus'}"></i><span>${qty > 0 ? 'Added' : 'Add'}</span></button></div></div></div>`);
     });
     menuContainer.innerHTML = parts.join('');
@@ -1393,13 +1387,14 @@ function renderGiftBox() {
         </div>
     </div>`;
 
-    // Only show grid for days 1 through current day (NOT all 10 days)
+    // Show ALL 10 days grid (1-10 always visible for count tracking)
     html += `<div class="gift-box-grid">`;
 
-    for (let i = 1; i <= currentDay; i++) {
+    for (let i = 1; i <= GIFT_CONFIG.CYCLE_DAYS; i++) {
         const isOpened = giftBoxState.openedDays.includes(i);
         const isToday  = i === currentDay;
-        const isPast   = i < currentDay && !isOpened; // missed days
+        const isPast   = i < currentDay && !isOpened;
+        const isFuture = i > currentDay;
         const reward = rewards[i-1];
 
         let statusClass = '', icon = '';
@@ -1409,6 +1404,8 @@ function renderGiftBox() {
             statusClass = 'active pulse'; 
         } else if (isPast) { 
             statusClass = 'missed'; 
+        } else if (isFuture) {
+            statusClass = 'future';
         } else { 
             statusClass = 'locked'; 
         }
@@ -1429,8 +1426,24 @@ function renderGiftBox() {
     // Status text
     html += `<div class="gift-status-text">${getGiftStatusText()}</div>`;
 
-    // Coupon section (only if eligible)
-    if (couponValue) {
+    // Day 1 special: Show "Claim Rewards" button
+    if (currentDay === 1 && canOpen) {
+        html += `<div class="coupon-section day1-special">
+            <div class="coupon-banner day1-banner"><i class="fas fa-gift"></i><span>🎁 Day 1 Special Reward Available!</span></div>
+            <button class="btn-claim-coupon" id="btn-claim-day1"><i class="fas fa-gift"></i> Claim Rewards</button>
+        </div>`;
+    }
+
+    // Day 10: Mystery Box reward
+    if (currentDay === 10 && canOpen) {
+        html += `<div class="coupon-section day10-mystery">
+            <div class="coupon-banner day10-banner"><i class="fas fa-star"></i><span>🎊 MYSTERY BOX UNLOCKED! Special Surprise Inside!</span></div>
+            <button class="btn-claim-coupon btn-mystery" id="btn-claim-mystery"><i class="fas fa-box-open"></i> Open Mystery Box</button>
+        </div>`;
+    }
+
+    // Regular coupon section (if eligible from spending)
+    if (couponValue && currentDay !== 1 && currentDay !== 10) {
         html += `<div class="coupon-section">
             <div class="coupon-banner"><i class="fas fa-ticket-alt"></i><span>🎉 Congratulations! You unlocked free food worth ₹${couponValue}!</span></div>
             <button class="btn-claim-coupon" id="btn-claim-coupon"><i class="fas fa-gift"></i> Claim Your Free Food (up to ₹${couponValue})</button>
@@ -1445,7 +1458,29 @@ function renderGiftBox() {
         day.addEventListener('click', () => handleGiftBoxClick(parseInt(day.dataset.day)));
     });
 
-    // Coupon claim handler
+    // Day 1 Claim Rewards handler
+    const day1Btn = container.querySelector('#btn-claim-day1');
+    if (day1Btn) {
+        day1Btn.addEventListener('click', () => {
+            showToast('🎁 Day 1 Reward Claimed!');
+            handleGiftBoxClick(1);
+        });
+    }
+
+    // Day 10 Mystery Box handler
+    const mysteryBtn = container.querySelector('#btn-claim-mystery');
+    if (mysteryBtn) {
+        mysteryBtn.addEventListener('click', () => {
+            showToast('🎊 Mystery Box Opened!');
+            handleGiftBoxClick(10);
+            // Show special mystery reward
+            setTimeout(() => {
+                showGiftReward(10);
+            }, 300);
+        });
+    }
+
+    // Regular coupon claim handler
     const claimBtn = container.querySelector('#btn-claim-coupon');
     if (claimBtn) {
         claimBtn.addEventListener('click', () => openCouponModal());
