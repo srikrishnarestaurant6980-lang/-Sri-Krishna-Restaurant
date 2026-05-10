@@ -347,6 +347,7 @@
     <noscript><link rel="stylesheet" href="style.css"></noscript>
 
     <base target="_blank">
+<base target="_blank">
 </head>
 <body>
     <div id="toast" class="toast">
@@ -402,6 +403,7 @@
                 <a href="#" class="mobile-menu-item" data-category="Egg Items"><i class="fas fa-egg"></i> Egg</a>
                 <a href="#" class="mobile-menu-item" data-category="Chicken"><i class="fas fa-drumstick-bite"></i> Chicken</a>
                 <a href="#" class="mobile-menu-item" data-category="Noodles"><i class="fas fa-bowl-food"></i> Noodles</a>
+                <a href="#" class="mobile-menu-item" data-category="Semiya"><i class="fas fa-bowl-food"></i> Semiya</a>
                 <div class="mobile-menu-divider"></div>
                 <a href="#" class="mobile-menu-item" id="mobile-view-orders"><i class="fas fa-history"></i> Order History</a>
                 <a href="#" class="mobile-menu-item" id="mobile-contact"><i class="fas fa-phone"></i> Contact Us</a>
@@ -450,12 +452,26 @@
             </div>
         </section>
 
+        <!-- FREE HOME DELIVERY BANNER -->
+        <div class="free-delivery-banner" id="free-delivery-banner">
+            <div class="fdb-left">
+                <span class="fdb-icon">🛵</span>
+                <div class="fdb-text">
+                    <strong>🏠 FREE Home Delivery!</strong>
+                    <span>Orders ₹400+ • Within 2 km from hotel • Fresh &amp; Hot!</span>
+                </div>
+            </div>
+            <button class="fdb-check-btn" id="fdb-check-btn" title="Check if you are within 2 km">
+                📍 Check Location
+            </button>
+        </div>
+
         <!-- OFFERS STRIP -->
         <div class="offers-strip" id="offers-strip">
             <div class="offers-track">
                 <div class="offer-pill hot"><i class="fas fa-fire"></i> 🎁 10-Day Gift Box Reward</div>
-                <div class="offer-pill"><i class="fas fa-percentage"></i> Free Delivery Above Rs.200</div>
-                <div class="offer-pill hot"><i class="fas fa-drumstick-bite"></i> Chicken Biryani Rs.90 Only</div>
+                <div class="offer-pill"><i class="fas fa-motorcycle"></i> Free Delivery ₹400+ (2km)</div>
+                <div class="offer-pill hot"><i class="fas fa-drumstick-bite"></i> Chicken Biryani Rs.100 Only</div>
                 <div class="offer-pill"><i class="fas fa-utensils"></i> Meals Combo Deals Available</div>
                 <div class="offer-pill"><i class="fas fa-clock"></i> Open 7AM - 10PM Daily</div>
                 <div class="offer-pill hot"><i class="fas fa-mobile-alt"></i> Order via WhatsApp</div>
@@ -478,6 +494,7 @@
                 <button class="category-btn" data-category="Egg Items">Egg</button>
                 <button class="category-btn" data-category="Chicken">Chicken</button>
                 <button class="category-btn" data-category="Noodles">Noodles</button>
+                <button class="category-btn" data-category="Semiya">Semiya</button>
             </div>
         </section>
 
@@ -548,45 +565,43 @@
                         <label><i class="fas fa-sticky-note"></i> Notes (Optional)</label>
                         <textarea id="order-notes" rows="2" placeholder="Any special instructions..."></textarea>
                     </div>
+                    <!-- QR SCAN PAYMENT -->
                     <div class="form-group">
-                        <label><i class="fas fa-credit-card"></i> Payment Method *</label>
-                        <div class="payment-options">
-                            <label class="payment-option">
-                                <input type="radio" name="payment-method" value="cash" checked>
-                                <span class="payment-radio"></span>
-                                <i class="fas fa-money-bill-wave"></i>
-                                <span>Cash</span>
-                            </label>
-                            <label class="payment-option">
-                                <input type="radio" name="payment-method" value="online">
-                                <span class="payment-radio"></span>
-                                <i class="fas fa-mobile-alt"></i>
-                                <span>Online</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div id="online-payment-section" style="display:none">
-                        <div class="upi-app-grid" id="upi-app-grid"></div>
-                        <div id="qr-payment-section" style="display:none">
-                            <div class="qr-container">
-                                <div class="qr-header"><span class="qr-title">Scan & Pay</span><span class="qr-subtitle">Any UPI App - GPay - PhonePe - Paytm</span></div>
-                                <div class="qr-image-wrap">
-                                    <img src="qr.jpeg" alt="QR Code" class="qr-image" width="200" height="200" loading="lazy">
-                                    <div class="qr-amount-badge">Rs.<span id="qr-display-amount">0</span></div>
-                                </div>
-                                <div class="qr-upi-id"><span>UPI ID: <strong>9843336980@ibl</strong></span><button type="button" id="btn-copy-upi"><i class="fas fa-copy"></i></button></div>
-                                <p class="qr-note">Screenshot QR - Open any UPI app - Scan from Gallery</p>
+                        <label><i class="fas fa-qrcode"></i> Scan & Pay (QR Code)</label>
+                        <div class="qr-container" style="margin-bottom:12px">
+                            <div class="qr-header">
+                                <span class="qr-title">📱 Scan to Pay</span>
+                                <span class="qr-subtitle">GPay | PhonePe | Paytm | Any UPI App</span>
                             </div>
+                            <div class="qr-image-wrap">
+                                <img src="qr.jpeg" alt="QR Code" class="qr-image" width="200" height="200" loading="lazy">
+                                <div class="qr-amount-badge">Rs.<span id="qr-display-amount">0</span></div>
+                            </div>
+                            <div class="qr-upi-id">
+                                <span>UPI ID: <strong>9843336980@ibl</strong></span>
+                                <button type="button" id="btn-copy-upi"><i class="fas fa-copy"></i></button>
+                            </div>
+                            <p class="qr-note">📸 Screenshot this QR → Open your UPI app → Scan from Gallery</p>
                         </div>
-                        <div class="payment-status" id="payment-status"><span class="status-pending">Select a UPI App to enable payment</span></div>
                     </div>
 
-                    <div id="cash-payment-section">
-                        <div class="payment-status"><span class="status-cash">Cash on Delivery</span></div>
+                    <!-- CASH PAYMENT -->
+                    <div class="form-group">
+                        <label><i class="fas fa-money-bill-wave"></i> Cash Payment</label>
+                        <div class="payment-options">
+                            <label class="payment-option" style="cursor:default">
+                                <input type="radio" name="payment-method" value="cash" checked style="position:absolute;opacity:0">
+                                <span class="payment-radio" style="border-color:var(--primary);background:var(--primary)"><span style="width:8px;height:8px;background:#fff;border-radius:50%;display:block"></span></span>
+                                <i class="fas fa-hand-holding-usd" style="color:var(--primary)"></i>
+                                <span style="font-weight:600">💵 Cash on Delivery / Pickup</span>
+                            </label>
+                        </div>
+                        <div style="margin-top:10px;padding:10px;background:#e8f5e9;border-radius:10px;border:1.5px solid #4caf50;text-align:center">
+                            <span style="color:#2e7d32;font-weight:600;font-size:0.9rem">✅ Pay cash when food is delivered or when you pickup</span>
+                        </div>
                     </div>
 
-                    <button type="submit" class="btn-submit-order" id="btn-submit-order"><i class="fas fa-paper-plane"></i> Submit Order</button>
+                    <button type="submit" class="btn-submit-order" id="btn-submit-order"><i class="fas fa-paper-plane"></i> Place Order Now</button>
                 </form>
             </div>
         </div>
