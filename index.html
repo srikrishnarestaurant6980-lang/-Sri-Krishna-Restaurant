@@ -17,8 +17,8 @@
     <link rel="preload" as="image" href="https://images.unsplash.com/photo-1630384060421-cb20aeb65535?w=800&q=60&fm=webp&auto=format" fetchpriority="high">
     <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
 
-    <link rel="icon" href="icon.jpeg" type="image/jpeg">
-    <link rel="apple-touch-icon" href="icon.jpeg">
+    <link rel="icon" href="img/set%20dosa.jpg" type="image/jpeg">
+    <link rel="apple-touch-icon" href="img/set%20dosa.jpg">
 
     <style>
     :root{--primary:#e65100;--primary-dark:#bf360c;--secondary:#2e7d32;--bg:#f8f9fa;--card-bg:#fff;--text:#212529;--text-light:#6c757d;--border:#dee2e6;--shadow:0 2px 8px rgba(0,0,0,0.08);--radius:14px;--radius-sm:10px;--header-height:64px}
@@ -212,7 +212,7 @@
     .form-group input:focus,.form-group textarea:focus{border-color:var(--primary)}
     .form-group textarea{resize:vertical;min-height:60px}
 
-    .payment-options{display:flex;gap:10px}
+    .payment-options{display:flex;gap:10px;flex-wrap:wrap}
     .payment-option{flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s;background:#fff}
     .payment-option:has(input:checked){border-color:var(--primary);background:#fff3e0}
     .payment-option input{position:absolute;opacity:0}
@@ -236,14 +236,14 @@
     .qr-header{margin-bottom:10px}
     .qr-title{font-size:1rem;font-weight:700;color:var(--text)}
     .qr-subtitle{font-size:0.8rem;color:var(--text-light)}
-    .qr-image-wrap{position:relative;display:inline-block;margin-bottom:10px}
-    .qr-image{width:180px;height:180px;border-radius:8px;object-fit:contain;background:#fff;padding:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
-    .qr-amount-badge{position:absolute;top:-8px;right:-8px;background:var(--primary);color:#fff;padding:4px 10px;border-radius:50px;font-size:0.8rem;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.2)}
-    .qr-upi-id{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0;font-size:0.9rem}
+    .qr-image-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;width:min(100%,320px);margin:0 auto 10px}
+    .qr-image{width:100%;max-width:320px;height:auto;border-radius:16px;object-fit:contain;background:#fff;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,0.12)}
+    .qr-amount-badge{position:static;display:inline-flex;align-items:center;justify-content:center;background:var(--primary);color:#fff;padding:6px 12px;border-radius:50px;font-size:0.82rem;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+    .qr-upi-id{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0;font-size:0.9rem;flex-wrap:wrap}
     .qr-upi-id strong{color:var(--primary)}
     #btn-copy-upi{width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.85rem}
     #btn-copy-upi:active{transform:scale(0.9)}
-    .qr-note{font-size:0.8rem;color:var(--text-light);margin-top:8px}
+    .qr-note{font-size:0.8rem;color:var(--text-light);margin-top:8px;line-height:1.5}
 
     .payment-status{text-align:center;padding:10px;background:#f5f5f5;border-radius:var(--radius-sm);margin:10px 0;font-size:0.85rem;font-weight:600}
     .status-paid{color:var(--secondary);background:#e8f5e9}
@@ -348,6 +348,7 @@
 
     <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
     <div id="toast" class="toast">
@@ -365,7 +366,7 @@
         <div class="header-top">
             <div class="header-left">
                 <div class="logo">
-                    <img src="icon.jpeg" alt="Logo" width="48" height="48" loading="eager" fetchpriority="high">
+                    <img src="img/set%20dosa.jpg" alt="Logo" width="48" height="48" loading="eager" fetchpriority="high">
                 </div>
                 <div class="hotel-info">
                     <div class="hotel-title">Sri Krishna Restaurant</div>
@@ -502,7 +503,7 @@
         </div>
 
         <!-- GIFT BOX SECTION -->
-        <div class="gift-box-wrapper show" id="gift-box-wrapper">
+        <div class="gift-box-wrapper" id="gift-box-wrapper" style="display:none">
             <div class="gift-offers-info" style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);border:2px dashed #ff9800;border-radius:14px;padding:14px;margin:12px;text-align:center;box-shadow:0 2px 10px rgba(255,152,0,0.1)">
                 <div style="font-size:1rem;color:#e65100;font-weight:700;margin-bottom:6px"><i class="fas fa-gift"></i> 🎁 10-Day Gift Box Rewards!</div>
                 <div style="font-size:0.85rem;color:#666;line-height:1.5">
@@ -589,60 +590,62 @@
                         <input type="tel" id="customer-mobile" placeholder="Enter mobile number" maxlength="10" required autocomplete="tel" inputmode="numeric">
                     </div>
                     <div class="form-group">
-                        <label><i class="fas fa-chair"></i> Table Number *</label>
-                        <input type="text" id="table-number" placeholder="Enter table number" required inputmode="numeric">
+                        <label><i class="fas fa-location-dot"></i> Place / Table *</label>
+                        <input type="text" id="table-number" placeholder="Enter table number or parcel place" required autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="order-notes-group">
                         <label><i class="fas fa-sticky-note"></i> Notes (Optional)</label>
                         <textarea id="order-notes" rows="2" placeholder="Any special instructions..."></textarea>
                     </div>
                     <!-- QR SCAN PAYMENT -->
-                    <div id="online-payment-section" style="display:none">
+                    <div id="qr-payment-section" style="display:none">
                         <div class="form-group">
                             <label><i class="fas fa-qrcode"></i> Scan & Pay (QR Code)</label>
                             <div class="qr-container" style="margin-bottom:12px">
                             <div class="qr-header">
                                 <span class="qr-title">📱 Scan to Pay</span>
-                                <span class="qr-subtitle">GPay | PhonePe | Paytm | Any UPI App</span>
+                                <span class="qr-subtitle">PhonePe QR | Works with most UPI apps</span>
                             </div>
                             <div class="qr-image-wrap">
-                                <img src="qr.jpeg" alt="QR Code" class="qr-image" width="200" height="200" loading="lazy">
+                                <img src="qr.jpeg" alt="PhonePe QR Code" class="qr-image" width="850" height="1600" loading="lazy">
                                 <div class="qr-amount-badge">Rs.<span id="qr-display-amount">0</span></div>
                             </div>
                             <div class="qr-upi-id">
                                 <span>UPI ID: <strong>9843336980@ibl</strong></span>
                                 <button type="button" id="btn-copy-upi"><i class="fas fa-copy"></i></button>
                             </div>
-                            <p class="qr-note">📸 Screenshot this QR → Open your UPI app → Scan from Gallery</p>
+                            <p class="qr-note">📸 Open PhonePe, GPay, Paytm, or another UPI app and scan this QR to pay.</p>
                         </div>
                     </div>
-
                     </div>
-
-                    <div id="cash-payment-section">
-                        <div id="qr-payment-section" style="display:none">
-                            <!-- QR section placeholder for JS compatibility -->
-                        </div>
 
                     <!-- CASH PAYMENT -->
-                    <div class="form-group">
-                        <label><i class="fas fa-money-bill-wave"></i> Cash Payment</label>
+                    <div class="form-group" id="payment-method-group">
+                        <label><i class="fas fa-wallet"></i> Payment Method</label>
                         <div class="payment-options">
-                            <label class="payment-option" style="cursor:default">
-                                <input type="radio" name="payment-method" value="cash" checked style="position:absolute;opacity:0">
-                                <span class="payment-radio" style="border-color:var(--primary);background:var(--primary)"><span style="width:8px;height:8px;background:#fff;border-radius:50%;display:block"></span></span>
-                                <i class="fas fa-hand-holding-usd" style="color:var(--primary)"></i>
-                                <span style="font-weight:600">💵 Cash on Delivery / Pickup</span>
+                            <label class="payment-option" id="qr-option-label">
+                                <input type="radio" name="payment-method" value="qr">
+                                <span class="payment-radio"></span>
+                                <i class="fas fa-qrcode"></i>
+                                <span>Scan & Pay</span>
+                            </label>
+                            <label class="payment-option" id="cash-option-label">
+                                <input type="radio" name="payment-method" value="cash" checked>
+                                <span class="payment-radio"></span>
+                                <i class="fas fa-hand-holding-usd"></i>
+                                <span>Cash</span>
                             </label>
                         </div>
-                        <div style="margin-top:10px;padding:10px;background:#e8f5e9;border-radius:10px;border:1.5px solid #4caf50;text-align:center">
-                            <span style="color:#2e7d32;font-weight:600;font-size:0.9rem">✅ Pay cash when food is delivered or when you pickup</span>
+                        <div id="cash-info-section" style="margin-top:10px;padding:10px;background:#e8f5e9;border-radius:10px;border:1.5px solid #4caf50;text-align:center">
+                            <span style="color:#2e7d32;font-weight:600;font-size:0.9rem">Pay cash when food is delivered or when you pickup</span>
                         </div>
                     </div>
 
-                    <button type="submit" class="btn-submit-order" id="btn-submit-order"><i class="fas fa-paper-plane"></i> Place Order Now</button>
-                                    <div class="payment-status" id="payment-status" style="display:none">
-                        <span class="status-cash">Cash on Delivery</span>
+                    <div id="order-form-actions">
+                        <button type="submit" class="btn-submit-order" id="btn-submit-order"><i class="fas fa-paper-plane"></i> Place Order & Send Bill to Admin</button>
+                        <div class="payment-status" id="payment-status" style="display:none">
+                            <span class="status-cash">Cash on Delivery</span>
+                        </div>
                     </div>
 </form>
             </div>
@@ -654,6 +657,11 @@
                 <div class="success-icon"><i class="fas fa-check-circle"></i></div>
                 <h3>Order Placed Successfully!</h3>
                 <p>Thank you for your order.</p>
+                <div style="background:linear-gradient(135deg,#e8f5e9,#fff);border:2px solid #4caf50;border-radius:12px;padding:14px;margin:14px 0;text-align:center">
+                    <div style="font-size:1.3rem;margin-bottom:6px">📲✅</div>
+                    <div style="font-size:0.95rem;color:#2e7d32;font-weight:700">Bill sent to Admin WhatsApp!</div>
+                    <div style="font-size:0.82rem;color:#666;margin-top:4px">+91 98433 36980</div>
+                </div>
                 <p class="success-note">A confirmation has been sent via WhatsApp.</p>
                 <div id="firebase-status" style="margin:10px 0;font-size:0.85rem;color:#666;"></div>
                 <button class="btn-download-bill" id="btn-download-bill" style="display:none"><i class="fas fa-download"></i> Download Bill</button>
@@ -760,9 +768,6 @@
             }
         };
 
-        // ✅ SPEED FIX: Firebase-ஐ page load-ல init பண்ணாம - 
-        // முதல் order submit time-ல மட்டும் load ஆகும் (lazy init)
-        // window.initFirebase() is called on-demand from saveOrderToFirestore
         console.log('[Firebase] Lazy init enabled - will load on first order');
     </script>
 
