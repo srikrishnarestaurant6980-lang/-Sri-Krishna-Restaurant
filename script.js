@@ -933,7 +933,6 @@ function openContactModal()  { document.getElementById('contact-modal')?.classLi
 function closeContactModal() { document.getElementById('contact-modal')?.classList.remove('open'); document.getElementById('contact-modal-overlay')?.classList.remove('open'); document.body.style.overflow = ''; }
 
 function openOrderModal() {
-    renderUpiAppGrid();
     document.getElementById('order-modal')?.classList.add('open');
     document.getElementById('order-modal-overlay')?.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -1080,44 +1079,6 @@ function sendBillToAdminWhatsApp(order) {
     showToast('📲 Bill opened for admin on WhatsApp!');
     return true;
 }
-
-/* function buildAdminBillMessage(order) {
-    const items = order.items.map(i => 
-        `• ${i.name} x${i.quantity} = ₹${i.price * i.quantity}`
-    ).join('
-');
-
-    return `*🧾 NEW ORDER - Sri Krishna Hotel*
-
-` +
-           `*Order ID:* ${order.id}
-` +
-           `*Date:* ${order.date} ${order.time}
-
-` +
-           `*Customer:* ${order.customerName}
-` +
-           `*Mobile:* ${order.customerMobile}
-` +
-           `*Table:* ${order.tableNumber}
-` +
-           `*Payment:* ${order.paymentStatus}
-
-` +
-           `*📋 ITEMS:*
-${items}
-
-` +
-           `*💰 TOTAL: ₹${order.totalAmount}*
-
-` +
-           `${order.notes ? '*Notes:* ' + order.notes + '
-' : ''}` +
-           `━━━━━━━━━━━━━━━━━━
-` +
-           `_Auto-generated bill from online order_`;
-}
-*/
 
 function buildAdminBillMessage(order) {
     const items = order.items
@@ -1427,22 +1388,6 @@ function renderGiftBox() {
     // Status text
     html += `<div class="gift-status-text">${getGiftStatusText()}</div>`;
 
-    // Day 1 special: Show "Claim Rewards" button
-    if (currentDay === 1 && canOpen) {
-        html += `<div class="coupon-section day1-special">
-            <div class="coupon-banner day1-banner"><i class="fas fa-gift"></i><span>🎁 Day 1 Special Reward Available!</span></div>
-            <button class="btn-claim-coupon" id="btn-claim-day1"><i class="fas fa-gift"></i> Claim Rewards</button>
-        </div>`;
-    }
-
-    // Day 10: Mystery Box reward
-    if (currentDay === 10 && canOpen) {
-        html += `<div class="coupon-section day10-mystery">
-            <div class="coupon-banner day10-banner"><i class="fas fa-star"></i><span>🎊 MYSTERY BOX UNLOCKED! Special Surprise Inside!</span></div>
-            <button class="btn-claim-coupon btn-mystery" id="btn-claim-mystery"><i class="fas fa-box-open"></i> Open Mystery Box</button>
-        </div>`;
-    }
-
     // Spending-based coupon section (only if eligible)
     if (couponValue > 0) {
         html += `<div class="coupon-section">
@@ -1508,7 +1453,7 @@ function getGiftStatusText() {
 
 function handleGiftBoxClick(day) {
     if (!canOpenToday() || day !== getCurrentDay()) {
-        showToast(day < getCurrentDay() ? "This day has passed! Open today's box." : "Come back tomorrow!");
+        showToast(day < getCurrentDay() ? 'This day has passed! Open today\'s box.' : 'Come back tomorrow!');
         return;
     }
     giftBoxState.openedDays.push(day);
@@ -1523,5 +1468,3 @@ function showGiftReward(day) {
     // No daily rewards - only spending-based coupons
     showToast('Day ' + day + ' opened! Check your spending rewards below.');
 }
-
-// ===================== END UPDATED GIFT BOX SYSTEM =====================
