@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Dashboard | Sri Krishna Hotel Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#e65100">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="icon" href="icon.jpeg" type="image/jpeg">
+    <link rel="apple-touch-icon" href="icon.jpeg">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <link rel="stylesheet" href="admin.css">
+
+    <style>
+    /* ===== DASHBOARD PAGE STYLES ===== */
+    body {
+        background: #f5f4f0;
+        overflow-x: hidden;
+        padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
+
+    body.auth-pending > *:not(#auth-overlay) { visibility: hidden; }
+
+    /* ===== AUTH OVERLAY ===== */
+    #auth-overlay {
+        position: fixed; inset: 0;
+        background: linear-gradient(135deg, #1a1a1a 0%, #bf360c 100%);
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 18px; z-index: 99999; color: #fff;
+        font-family: 'Sora', sans-serif; transition: opacity 0.4s;
+    }
+    #auth-overlay.hidden { opacity: 0; pointer-events: none; }
+    #auth-overlay .spinner {
+        width: 48px; height: 48px;
+        border: 4px solid rgba(255,255,255,0.25);
+        border-top-color: #fff; border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    #auth-overlay p { font-size: 1rem; font-weight: 600; opacity: 0.85; }
+
+    /* ===== TOP NAV ===== */
+    .top-nav {
+        position: sticky; top: 0; z-index: 100;
+        background: #fff; border-bottom: 1px solid #e5e7eb;
+        padding: 0 16px; height: 60px;
+        display: flex; align-items: center; justify-content: space-between;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo {
+        width: 36px; height: 36px; border-radius: 10px;
+        overflow: hidden; border: 2px solid #f3f4f6;
+        background: #f9fafb; display: flex; align-items: center;
+        justify-content: center; font-size: 1.1rem; flex-shrink: 0;
+    }
+    .nav-logo img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    .nav-title { font-family: 'Sora', sans-serif; font-size: 1rem; font-weight: 700; color: #1a1a1a; line-height: 1.2; }
+    .nav-subtitle { font-size: 0.72rem; color: #9ca3af; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    .nav-actions { display: flex; align-items: center; gap: 6px; }
+    .nav-avatar {
+        width: 36px; height: 36px; border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: #fff; display: flex; align-items: center; justify-content: center;
+        font-family: 'Sora', sans-serif; font-size: 0.9rem; font-weight: 700;
+        cursor: pointer; border: 2px solid rgba(230,81,0,0.2);
+        flex-shrink: 0; transition: transform 0.2s;
+    }
+    .nav-avatar:hover { transform: scale(1.05); }
+    .nav-logout-btn {
+        display: flex; align-items: center; gap: 8px;
+        padding: 10px 18px; border-radius: 50px;
+        background: #fef2f2; color: #dc2626;
+        font-size: 0.95rem; font-weight: 700;
+        font-family: 'DM Sans', sans-serif;
+        border: 2px solid #fca5a5; cursor: pointer;
+        transition: background 0.2s; white-space: nowrap; min-height: 44px;
+    }
+    .nav-logout-btn i { font-size: 1rem; }
+    .nav-logout-btn:hover { background: #fee2e2; }
+    .nav-logout-btn:active { transform: scale(0.97); }
+    @media (max-width: 360px) { .nav-logout-btn { padding: 10px 12px; font-size: 0.88rem; } }
+
+    /* ===== PAGE CONTENT ===== */
+    .page-content { max-width: 800px; margin: 0 auto; padding: 24px 16px 40px; }
+
+    /* ===== WELCOME BANNER ===== */
+    .welcome-banner {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        border-radius: 20px; padding: 28px 24px; color: #fff;
+        margin-bottom: 24px; position: relative; overflow: hidden;
+        box-shadow: 0 8px 24px rgba(230,81,0,0.25);
+    }
+    .welcome-banner::after {
+        content: '🍽️'; position: absolute; right: 20px; top: 50%;
+        transform: translateY(-50%); font-size: 4.5rem; opacity: 0.15; pointer-events: none;
+    }
+    .welcome-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; font-weight: 600; margin-bottom: 6px; }
+    .welcome-title { font-family: 'Sora', sans-serif; font-size: 1.5rem; font-weight: 800; margin-bottom: 6px; line-height: 1.2; }
+    .welcome-time { font-size: 0.82rem; opacity: 0.75; }
+    .welcome-badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: rgba(255,255,255,0.2); border-radius: 50px;
+        padding: 5px 12px; font-size: 0.78rem; font-weight: 600;
+        margin-top: 14px; border: 1px solid rgba(255,255,255,0.25);
+    }
+
+    /* ===== SESSION DATE BADGE ===== */
+    .session-date-bar {
+        display: flex; align-items: center; justify-content: space-between;
+        background: #fff3e0; border: 1.5px solid #ffcc80;
+        border-radius: 12px; padding: 10px 16px;
+        margin-bottom: 20px; font-size: 0.85rem;
+    }
+    .session-date-bar .date-label { font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+    .session-date-bar .date-badge {
+        background: var(--primary); color: #fff;
+        border-radius: 50px; padding: 3px 12px;
+        font-size: 0.78rem; font-weight: 700;
+    }
+
+    /* ===== SECTION LABEL ===== */
+    .section-label {
+        font-family: 'Sora', sans-serif; font-size: 0.78rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1px; color: #9ca3af;
+        margin-bottom: 12px; padding-left: 2px;
+    }
+
+    /* ===== STAT CARDS GRID ===== */
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 28px; }
+    .stat-card {
+        background: #fff; border-radius: 16px; padding: 18px 16px;
+        box-shadow: var(--shadow-sm); border: 1px solid #f3f4f6;
+        transition: transform 0.2s, box-shadow 0.2s; position: relative; overflow: hidden;
+    }
+    .stat-card::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 16px 16px 0 0;
+    }
+    .stat-card.orange::before { background: linear-gradient(90deg, var(--primary), var(--primary-dark)); }
+    .stat-card.green::before  { background: linear-gradient(90deg, #16a34a, #15803d); }
+    .stat-card.blue::before   { background: linear-gradient(90deg, #2563eb, #1d4ed8); }
+    .stat-card.purple::before { background: linear-gradient(90deg, #7c3aed, #6d28d9); }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+    .stat-icon {
+        width: 36px; height: 36px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.95rem; margin-bottom: 12px;
+    }
+    .stat-icon.orange { background: #fff3e0; color: var(--primary); }
+    .stat-icon.green  { background: #dcfce7; color: #16a34a; }
+    .stat-icon.blue   { background: #dbeafe; color: #2563eb; }
+    .stat-icon.purple { background: #ede9fe; color: #7c3aed; }
+    .stat-value { font-family: 'Sora', sans-serif; font-size: 1.55rem; font-weight: 800; color: #1a1a1a; line-height: 1; margin-bottom: 4px; }
+    .stat-label { font-size: 0.78rem; color: #6b7280; font-weight: 500; }
+    .stat-loading {
+        display: inline-block; width: 60px; height: 20px;
+        background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+        background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 6px;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* ===== ORDERS PANEL ===== */
+    .orders-panel {
+        background: #fff; border-radius: 16px;
+        box-shadow: var(--shadow-sm); border: 1px solid #f3f4f6;
+        margin-bottom: 28px; overflow: hidden;
+    }
+    .orders-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 18px; border-bottom: 1px solid #f3f4f6;
+    }
+    .orders-header-title {
+        font-family: 'Sora', sans-serif; font-size: 0.95rem; font-weight: 700; color: #1a1a1a;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .orders-header-title i { color: var(--primary); }
+    .orders-count {
+        background: var(--primary-light); color: var(--primary);
+        border-radius: 50px; padding: 3px 10px;
+        font-size: 0.78rem; font-weight: 700;
+    }
+    .orders-list { max-height: 420px; overflow-y: auto; }
+    .order-item {
+        display: flex; align-items: flex-start; gap: 12px;
+        padding: 14px 18px; border-bottom: 1px solid #f9fafb;
+        transition: background 0.15s;
+    }
+    .order-item:last-child { border-bottom: none; }
+    .order-item:hover { background: #fafafa; }
+    .order-num {
+        width: 32px; height: 32px; border-radius: 8px;
+        background: var(--primary-light); color: var(--primary);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+    }
+    .order-details { flex: 1; min-width: 0; }
+    .order-id { font-size: 0.8rem; font-weight: 700; color: #1a1a1a; }
+    .order-items-list { font-size: 0.75rem; color: #6b7280; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .order-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .order-time { font-size: 0.72rem; color: #9ca3af; }
+    .order-payment {
+        font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 50px;
+    }
+    .payment-cash { background: #dcfce7; color: #16a34a; }
+    .payment-upi  { background: #dbeafe; color: #2563eb; }
+    .order-source {
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 50px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .source-customer {
+        background: #dbeafe;
+        color: #1d4ed8;
+        border: 1px solid #93c5fd;
+    }
+    .source-admin {
+        background: #ffedd5;
+        color: #c2410c;
+        border: 1px solid #fdba74;
+    }
+    .order-amount { font-family: 'Sora', sans-serif; font-size: 0.95rem; font-weight: 800; color: #1a1a1a; flex-shrink: 0; }
+    .orders-empty {
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; padding: 48px 20px; gap: 12px; color: #9ca3af;
+    }
+    .orders-empty i { font-size: 2.5rem; opacity: 0.4; }
+    .orders-empty p { font-size: 0.9rem; font-weight: 500; text-align: center; }
+    .orders-empty small { font-size: 0.78rem; opacity: 0.7; }
+    .orders-loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 36px 20px; color: #9ca3af; font-size: 0.88rem; }
+
+    /* ===== QUICK ACTIONS ===== */
+    .quick-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 28px; }
+    .action-btn {
+        background: #fff; border-radius: 14px; padding: 16px 14px;
+        text-align: left; border: 1px solid #f3f4f6; box-shadow: var(--shadow-sm);
+        cursor: pointer; transition: all 0.2s;
+        display: flex; flex-direction: column; gap: 8px; font-family: 'DM Sans', sans-serif;
+    }
+    .action-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--primary); }
+    .action-btn:active { transform: scale(0.97); }
+    .action-btn.full { grid-column: 1 / -1; flex-direction: row; align-items: center; padding: 14px 18px; }
+    .action-icon {
+        width: 40px; height: 40px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem; flex-shrink: 0;
+    }
+    .action-icon.orange { background: #fff3e0; color: var(--primary); }
+    .action-icon.green  { background: #dcfce7; color: #16a34a; }
+    .action-icon.blue   { background: #dbeafe; color: #2563eb; }
+    .action-icon.red    { background: #fef2f2; color: #dc2626; }
+    .action-icon.gray   { background: #f3f4f6; color: #4b5563; }
+    .action-title { font-size: 0.88rem; font-weight: 600; color: #1a1a1a; }
+    .action-desc { font-size: 0.76rem; color: #9ca3af; line-height: 1.4; }
+    .action-btn.full .action-title { font-size: 0.95rem; }
+    .action-btn.full .action-desc { margin-top: 1px; }
+    .action-btn.full .action-text { flex: 1; min-width: 0; }
+    .coming-pill {
+        margin-left: auto; background: #f3f4f6; color: #9ca3af;
+        font-size: 0.68rem; font-weight: 600; padding: 3px 8px;
+        border-radius: 50px; white-space: nowrap; flex-shrink: 0;
+    }
+
+    /* ===== REPORT CARD ===== */
+    .report-card {
+        background: #fff; border-radius: 16px; overflow: hidden;
+        box-shadow: var(--shadow-sm); border: 1px solid #f3f4f6; margin-bottom: 28px;
+    }
+    .report-card-header {
+        padding: 16px 18px; border-bottom: 1px solid #f3f4f6;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .report-card-title {
+        font-family: 'Sora', sans-serif; font-size: 0.95rem; font-weight: 700; color: #1a1a1a;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .report-card-title i { color: #16a34a; }
+    .report-body { padding: 18px; }
+    .report-summary {
+        display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px;
+    }
+    .report-stat {
+        background: #f9fafb; border-radius: 10px; padding: 12px 14px;
+        border: 1px solid #f3f4f6;
+    }
+    .report-stat-label { font-size: 0.72rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .report-stat-val { font-family: 'Sora', sans-serif; font-size: 1.2rem; font-weight: 800; color: #1a1a1a; }
+    .report-actions { display: flex; flex-direction: column; gap: 10px; }
+    .report-btn {
+        display: flex; align-items: center; gap: 12px;
+        padding: 14px 16px; border-radius: 12px;
+        font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 600;
+        cursor: pointer; border: none; transition: all 0.2s; width: 100%; text-align: left;
+    }
+    .report-btn i { width: 20px; text-align: center; flex-shrink: 0; font-size: 1rem; }
+    .report-btn span { flex: 1; }
+    .report-btn small { font-size: 0.72rem; font-weight: 400; opacity: 0.7; }
+    .report-btn-green { background: #dcfce7; color: #15803d; }
+    .report-btn-green:hover { background: #bbf7d0; }
+    .report-btn-wa { background: #d1fae5; color: #065f46; }
+    .report-btn-wa:hover { background: #a7f3d0; }
+    .report-btn-reset { background: #fef2f2; color: #dc2626; }
+    .report-btn-reset:hover { background: #fee2e2; }
+    .report-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ===== RESET CONFIRM MODAL ===== */
+    #reset-modal .modal-icon { background: #fef2f2; color: #dc2626; }
+
+    /* ===== INFO CARD ===== */
+    .info-card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: var(--shadow-sm); border: 1px solid #f3f4f6; margin-bottom: 28px; }
+    .info-card-title { font-family: 'Sora', sans-serif; font-size: 0.95rem; font-weight: 700; color: #1a1a1a; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .info-card-title i { color: var(--primary); font-size: 0.9rem; }
+    .info-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f9fafb; font-size: 0.87rem; }
+    .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .info-row-label { color: #6b7280; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+    .info-row-label i { width: 16px; color: #9ca3af; }
+    .info-row-value { color: #1a1a1a; font-weight: 600; text-align: right; max-width: 60%; word-break: break-all; }
+
+    /* ===== FOOTER ===== */
+    .page-footer { text-align: center; font-size: 0.88rem; color: #9ca3af; padding-top: 8px; line-height: 2; }
+
+    /* ===== LOGOUT MODAL ===== */
+    #logout-modal .modal-icon { background: #fef2f2; color: #dc2626; }
+
+    /* ===== STICKY BACK BAR ===== */
+    .sticky-back-bar {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+        background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px); border-top: 1px solid #e5e7eb;
+        z-index: 50; box-shadow: 0 -4px 20px rgba(0,0,0,0.07);
+    }
+    .back-bar-btn {
+        display: flex; align-items: center; gap: 12px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: #fff; border-radius: 14px; padding: 14px 20px;
+        font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 0.95rem;
+        text-decoration: none; box-shadow: 0 4px 16px rgba(230,81,0,0.28);
+        transition: all 0.2s; max-width: 560px; margin: 0 auto; position: relative;
+    }
+    .back-bar-btn:hover  { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(230,81,0,0.38); }
+    .back-bar-btn:active { transform: scale(0.98); }
+    .back-bar-btn .fa-store { font-size: 1.1rem; opacity: 0.9; flex-shrink: 0; }
+    .back-bar-btn span { flex: 1; }
+    .back-arrow { font-size: 0.8rem; opacity: 0.7; flex-shrink: 0; }
+
+    .page-content { padding-bottom: 90px !important; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (min-width: 480px) {
+        .page-content { padding: 28px 24px 48px; }
+        .stats-grid { gap: 16px; }
+        .stat-value  { font-size: 1.7rem; }
+    }
+    @media (min-width: 640px) {
+        .stats-grid    { grid-template-columns: repeat(4, 1fr); }
+        .quick-actions { grid-template-columns: repeat(3, 1fr); }
+        .action-btn.full { grid-column: auto; flex-direction: column; }
+        .coming-pill { margin-left: 0; margin-top: auto; align-self: flex-start; }
+        .report-summary { grid-template-columns: repeat(4, 1fr); }
+        .report-actions { flex-direction: row; }
+        .report-btn { flex: 1; flex-direction: column; text-align: center; align-items: center; }
+        .report-btn i { width: auto; font-size: 1.3rem; margin-bottom: 2px; }
+    }
+    
+
+    /* ===== POS MANUAL BILL ENTRY ===== */
+    .pos-modal { padding: 0 !important; }
+    .pos-body { padding: 20px 18px 24px; max-height: 80dvh; overflow-y: auto; }
+
+    /* Mode Toggle */
+    .pos-mode-toggle {
+        grid-column: 1 / -1;
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .pos-mode-btn {
+        flex: 1;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 2px solid #e5e7eb;
+        background: #fff;
+        color: #6b7280;
+        font-family: 'DM Sans', sans-serif;
+        font-weight: 600;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .pos-mode-btn.active {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        border-color: var(--primary);
+        box-shadow: 0 2px 10px rgba(230,81,0,0.25);
+    }
+    .pos-mode-btn:active { transform: scale(0.97); }
+
+    /* Line Layout */
+    .pos-line {
+        display: grid;
+        grid-template-columns: 1fr 70px 70px 70px 36px;
+        gap: 8px;
+        align-items: end;
+        background: #f9fafb;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px 10px;
+        margin-bottom: 10px;
+        animation: slideUp 0.2s ease;
+    }
+    .pos-field label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        margin-bottom: 5px;
+    }
+    .pos-select {
+        width: 100%;
+        padding: 10px 10px;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-family: 'DM Sans', sans-serif;
+        background: #fff;
+        color: #1a1a1a;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 28px;
+    }
+    .pos-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(230,81,0,0.1); }
+    .pos-qty {
+        width: 100%;
+        padding: 10px 6px;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-align: center;
+        font-family: 'DM Sans', sans-serif;
+        outline: none;
+    }
+    .pos-qty:focus { border-color: var(--primary); }
+    .pos-price-display, .pos-line-total {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #1a1a1a;
+        padding: 10px 4px;
+        text-align: right;
+    }
+    .pos-line-total { color: var(--primary); font-size: 1rem; }
+    .pos-remove-line {
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        background: #fef2f2;
+        color: #dc2626;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.85rem; border: none; cursor: pointer;
+        transition: all 0.15s;
+    }
+    .pos-remove-line:hover { background: #fee2e2; }
+    .pos-remove-line:active { transform: scale(0.9); }
+
+    /* New Item Inputs */
+    .pos-new-name, .pos-new-price {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-family: 'DM Sans', sans-serif;
+        outline: none;
+        transition: all 0.2s;
+    }
+    .pos-new-name:focus, .pos-new-price:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(230,81,0,0.1);
+    }
+    .pos-new-name::placeholder, .pos-new-price::placeholder { color: #9ca3af; }
+    .pos-new-price-field { min-width: 80px; }
+
+    .btn-add-line {
+        width: 100%;
+        padding: 12px;
+        background: #f3f4f6;
+        color: var(--primary);
+        border: 2px dashed #d1d5db;
+        border-radius: 12px;
+        font-family: 'DM Sans', sans-serif;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        margin-bottom: 16px;
+        transition: all 0.2s;
+    }
+    .btn-add-line:hover { background: #fff3e0; border-color: var(--primary); }
+    .btn-add-line:active { transform: scale(0.98); }
+    .pos-payment-section { margin-bottom: 16px; }
+    .pos-section-label {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.78rem; font-weight: 700; color: #6b7280;
+        text-transform: uppercase; letter-spacing: 0.5px;
+        margin-bottom: 10px;
+    }
+    .pos-section-label i { color: var(--primary); font-size: 0.85rem; }
+    .pos-payment-options { display: flex; gap: 10px; }
+    .pos-payment-opt {
+        flex: 1;
+        display: flex; align-items: center; gap: 8px;
+        padding: 12px 14px;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        background: #fff;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    .pos-payment-opt:has(input:checked) {
+        border-color: var(--primary);
+        background: #fff3e0;
+    }
+    .pos-payment-opt input { position: absolute; opacity: 0; }
+    .pos-pay-radio {
+        width: 18px; height: 18px;
+        border: 2px solid #d1d5db;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        transition: all 0.2s; flex-shrink: 0;
+    }
+    .pos-payment-opt:has(input:checked) .pos-pay-radio {
+        border-color: var(--primary); background: var(--primary);
+    }
+    .pos-pay-radio::after {
+        content: ''; width: 7px; height: 7px;
+        background: #fff; border-radius: 50%;
+        opacity: 0; transition: opacity 0.2s;
+    }
+    .pos-payment-opt:has(input:checked) .pos-pay-radio::after { opacity: 1; }
+    .pos-payment-opt i { color: var(--primary); font-size: 1rem; }
+    .pos-customer-section { margin-bottom: 16px; }
+    .pos-customer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .pos-input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-family: 'DM Sans', sans-serif;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .pos-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(230,81,0,0.1); }
+    .pos-input::placeholder { color: #9ca3af; }
+    .pos-grand-total {
+        display: flex; align-items: center; justify-content: space-between;
+        background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+        border: 2px solid #ff9800;
+        border-radius: 14px;
+        padding: 16px 20px;
+        margin-bottom: 16px;
+    }
+    .pos-grand-label {
+        font-size: 0.85rem; font-weight: 700; color: #92400e;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .pos-grand-amount {
+        font-family: 'Sora', sans-serif;
+        font-size: 1.8rem; font-weight: 800; color: var(--primary);
+    }
+    .btn-pos-submit {
+        width: 100%;
+        padding: 16px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: #fff;
+        border-radius: 14px;
+        font-family: 'DM Sans', sans-serif;
+        font-weight: 700;
+        font-size: 1.05rem;
+        display: flex; align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 4px 16px rgba(230,81,0,0.3);
+        transition: all 0.2s;
+    }
+    .btn-pos-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(230,81,0,0.4); }
+    .btn-pos-submit:active { transform: scale(0.97); }
+    .btn-pos-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .pos-loading {
+        display: flex; align-items: center; justify-content: center;
+        gap: 8px; padding: 20px; color: #9ca3af; font-size: 0.9rem;
+    }
+    .pos-empty-menu {
+        text-align: center; padding: 30px 20px; color: #9ca3af;
+    }
+    .pos-empty-menu i { font-size: 2rem; margin-bottom: 8px; opacity: 0.4; }
+    .pos-select-mode, .pos-new-mode { width: 100%; }
+    .pos-item-field { grid-column: 1 / -1; }
+    .pos-new-mode .pos-item-field { grid-column: auto; }
+    @media (max-width: 480px) {
+        .pos-line { grid-template-columns: 1fr 55px 60px 60px 32px; gap: 5px; padding: 10px 8px; }
+        .pos-mode-btn { font-size: 0.78rem; padding: 7px 8px; }
+        .pos-select { font-size: 0.82rem; padding: 9px 8px; }
+        .pos-qty { padding: 9px 4px; font-size: 0.9rem; }
+        .pos-price-display, .pos-line-total { font-size: 0.82rem; padding: 9px 2px; }
+        .pos-customer-row { grid-template-columns: 1fr; }
+        .pos-grand-amount { font-size: 1.5rem; }
+        .pos-new-name, .pos-new-price { padding: 9px 10px; font-size: 0.85rem; }
+    }
+
+    
+
+    /* ===== REPORT SECTION STYLES ===== */
+    .rpt-payment-summary {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .rpt-pay-box {
+        background: #fff;
+        border-radius: 14px;
+        padding: 14px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 2px solid #f3f4f6;
+        transition: all 0.2s;
+    }
+    .rpt-pay-box:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+    .rpt-cash-box { border-color: #dcfce7; background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
+    .rpt-online-box { border-color: #dbeafe; background: linear-gradient(135deg, #eff6ff, #dbeafe); }
+    .rpt-grand-box { border-color: #ffedd5; background: linear-gradient(135deg, #fff7ed, #ffedd5); }
+    .rpt-pay-icon {
+        width: 40px; height: 40px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem; flex-shrink: 0;
+    }
+    .rpt-cash-box .rpt-pay-icon { background: #16a34a; color: #fff; }
+    .rpt-online-box .rpt-pay-icon { background: #2563eb; color: #fff; }
+    .rpt-grand-box .rpt-pay-icon { background: var(--primary); color: #fff; }
+    .rpt-pay-info { display: flex; flex-direction: column; min-width: 0; }
+    .rpt-pay-label { font-size: 0.72rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+    .rpt-pay-value { font-family: 'Sora', sans-serif; font-size: 1.3rem; font-weight: 800; color: #1a1a1a; line-height: 1.1; }
+    .rpt-pay-count { font-size: 0.72rem; color: #9ca3af; font-weight: 500; }
+
+    .rpt-section-title {
+        font-family: 'Sora', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .rpt-section-title i { color: var(--primary); font-size: 0.9rem; }
+
+    .rpt-cat-section { margin-bottom: 20px; }
+    .rpt-cat-grid { display: flex; flex-direction: column; gap: 10px; }
+    .rpt-cat-card {
+        background: #f9fafb;
+        border-radius: 12px;
+        border: 1.5px solid #f3f4f6;
+        overflow: hidden;
+    }
+    .rpt-cat-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: #fff;
+        border-bottom: 1px solid #f3f4f6;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .rpt-cat-header:hover { background: #fafafa; }
+    .rpt-cat-header:active { background: #f3f4f6; }
+    .rpt-cat-name {
+        display: flex; align-items: center; gap: 8px;
+        font-weight: 700; font-size: 0.88rem; color: #1a1a1a;
+    }
+    .rpt-cat-name .cat-emoji { font-size: 1.1rem; }
+    .rpt-cat-summary {
+        display: flex; align-items: center; gap: 12px;
+        font-size: 0.78rem; color: #6b7280; font-weight: 600;
+    }
+    .rpt-cat-summary span { color: var(--primary); font-weight: 700; }
+    .rpt-cat-toggle { font-size: 0.75rem; color: #9ca3af; transition: transform 0.2s; }
+    .rpt-cat-card.open .rpt-cat-toggle { transform: rotate(180deg); }
+    .rpt-cat-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+    }
+    .rpt-cat-card.open .rpt-cat-body { max-height: 600px; }
+    .rpt-cat-table {
+        width: 100%;
+        font-size: 0.82rem;
+        border-collapse: collapse;
+    }
+    .rpt-cat-table th {
+        background: #f3f4f6;
+        padding: 8px 10px;
+        text-align: left;
+        font-weight: 600;
+        color: #6b7280;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .rpt-cat-table th:last-child, .rpt-cat-table td:last-child { text-align: right; }
+    .rpt-cat-table th:nth-child(3), .rpt-cat-table td:nth-child(3) { text-align: center; }
+    .rpt-cat-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #f3f4f6;
+        color: #374151;
+    }
+    .rpt-cat-table tr:last-child td { border-bottom: none; }
+    .rpt-cat-table tr:hover td { background: #fafafa; }
+    .rpt-cat-total-row {
+        background: #fff7ed !important;
+        font-weight: 700;
+    }
+    .rpt-cat-total-row td { color: var(--primary); border-top: 2px solid #ffedd5; }
+    .rpt-source-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 7px;
+        border-radius: 50px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .rpt-src-qr { background: #dbeafe; color: #1d4ed8; }
+    .rpt-src-manual { background: #ffedd5; color: #c2410c; }
+
+    .rpt-top-section { margin-bottom: 16px; }
+    .rpt-top-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .rpt-top-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        background: #f9fafb;
+        border-radius: 10px;
+        border: 1.5px solid #f3f4f6;
+    }
+    .rpt-top-rank {
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-family: 'Sora', sans-serif;
+        font-size: 0.8rem; font-weight: 800;
+        flex-shrink: 0;
+    }
+    .rpt-top-name { flex: 1; font-weight: 600; font-size: 0.88rem; color: #1a1a1a; }
+    .rpt-top-qty { font-size: 0.82rem; color: #6b7280; font-weight: 500; }
+    .rpt-top-qty strong { color: var(--primary); font-size: 1rem; }
+    .rpt-top-rev { font-family: 'Sora', sans-serif; font-size: 0.9rem; font-weight: 700; color: #1a1a1a; }
+
+    @media (max-width: 480px) {
+        .rpt-payment-summary { grid-template-columns: 1fr; }
+        .rpt-cat-table { font-size: 0.75rem; }
+        .rpt-cat-table th, .rpt-cat-table td { padding: 6px 8px; }
+        .rpt-source-badge { font-size: 0.6rem; padding: 1px 5px; }
+    }
+
+    </style>
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+</head>
+<body class="auth-pending">
+
+    <!-- Auth guard overlay -->
+    <div id="auth-overlay">
+        <div class="spinner"></div>
+        <p>Verifying session…</p>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast" role="status" aria-live="polite">
+        <i class="fas fa-check-circle" id="toast-icon"></i>
+        <span id="toast-message">Message</span>
+    </div>
+
+    <!-- Logout Confirm Modal -->
+    <div class="modal-overlay" id="logout-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal">
+            <div class="modal-icon danger"><i class="fas fa-sign-out-alt"></i></div>
+            <div class="modal-title" id="modal-title">Sign out?</div>
+            <div class="modal-desc">You'll need to sign in again to access the admin panel.</div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="btn-cancel">Cancel</button>
+                <button class="btn btn-danger" id="btn-confirm-logout">
+                    <i class="fas fa-sign-out-alt"></i> Sign Out
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset / End-of-Day Confirm Modal -->
+    <div class="modal-overlay" id="reset-modal" role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+        <div class="modal">
+            <div class="modal-icon danger"><i class="fas fa-archive"></i></div>
+            <div class="modal-title" id="reset-modal-title">End Day & Archive?</div>
+            <div class="modal-desc">
+                Today's orders will be archived safely and the active list will be cleared.
+                This <strong>cannot be undone</strong>. Use only after the day is complete.
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="btn-reset-cancel">Cancel</button>
+                <button class="btn btn-danger" id="btn-reset-confirm">
+                    <i class="fas fa-archive"></i> Archive & Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TOP NAV ===== -->
+    <nav class="top-nav" role="navigation">
+        <div class="nav-brand">
+            <div class="nav-logo">
+                <img src="icon.jpeg" alt="Sri Krishna Hotel" width="36" height="36"
+                     onerror="this.style.display='none';this.parentElement.textContent='🍽️'">
+            </div>
+            <div>
+                <div class="nav-title">Sri Krishna Hotel</div>
+                <div class="nav-subtitle">Admin Dashboard</div>
+            </div>
+        </div>
+        <div class="nav-actions">
+            <div class="nav-avatar" id="nav-avatar" title="Signed in admin" aria-label="Admin user">A</div>
+            <button class="nav-logout-btn" id="btn-logout" aria-label="Sign out">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Sign Out</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ===== PAGE CONTENT ===== -->
+    <main class="page-content" role="main">
+
+        <!-- Welcome Banner -->
+        <section class="welcome-banner" aria-label="Welcome">
+            <div class="welcome-label">Management Panel</div>
+            <div class="welcome-title" id="welcome-title">Welcome back!</div>
+            <div class="welcome-time" id="welcome-time">Loading…</div>
+            <div class="welcome-badge">
+                <i class="fas fa-circle" style="font-size:0.5rem; color:#86efac;"></i>
+                Online
+            </div>
+        </section>
+
+        <!-- Today's Session Date Bar -->
+        <div class="session-date-bar">
+            <div class="date-label">
+                <i class="fas fa-calendar-day"></i>
+                Active Session
+            </div>
+            <div class="date-badge" id="session-date-badge">—</div>
+        </div>
+
+        <!-- Stats — Today Only -->
+        <div class="section-label">Overview — Today</div>
+        <div class="stats-grid" role="region" aria-label="Statistics">
+            <div class="stat-card orange">
+                <div class="stat-icon orange"><i class="fas fa-receipt"></i></div>
+                <div class="stat-value" id="stat-today-orders"><span class="stat-loading"></span></div>
+                <div class="stat-label">Today's Orders</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-icon green"><i class="fas fa-rupee-sign"></i></div>
+                <div class="stat-value" id="stat-today-revenue"><span class="stat-loading"></span></div>
+                <div class="stat-label">Today's Revenue</div>
+            </div>
+            <div class="stat-card blue">
+                <div class="stat-icon blue"><i class="fas fa-money-bill-wave"></i></div>
+                <div class="stat-value" id="stat-cash-revenue"><span class="stat-loading"></span></div>
+                <div class="stat-label">Cash</div>
+            </div>
+            <div class="stat-card purple">
+                <div class="stat-icon purple"><i class="fas fa-mobile-alt"></i></div>
+                <div class="stat-value" id="stat-upi-revenue"><span class="stat-loading"></span></div>
+                <div class="stat-label">UPI</div>
+            </div>
+        </div>
+
+        <!-- LIVE ORDERS PANEL: Customer orders only, 1-hour TTL -->
+        <div class="section-label">Live Orders</div>
+        <div class="orders-panel">
+            <div class="orders-header">
+                <div class="orders-header-title">
+                    <i class="fas fa-bolt" style="color:#f59e0b;"></i> Live Orders
+                    <span style="font-size:0.7rem;color:#9ca3af;font-weight:500;margin-left:6px;">(Customer only • 1hr limit)</span>
+                </div>
+                <span class="orders-count" id="orders-count-badge">0</span>
+            </div>
+            <div class="live-orders-info" style="padding:8px 18px;background:#fffbeb;border-bottom:1px solid #fcd34d;font-size:0.78rem;color:#92400e;display:flex;align-items:center;gap:6px;">
+                <i class="fas fa-clock" style="font-size:0.8rem;"></i>
+                <span>Orders auto-delete after 1 hour. Admin POS orders not shown here.</span>
+            </div>
+            <div class="orders-list" id="orders-list">
+                <div class="orders-loading">
+                    <i class="fas fa-circle-notch fa-spin" style="color:var(--primary)"></i>
+                    Loading live orders…
+                </div>
+            </div>
+        </div>
+
+        
+        <!-- Daily Report & Reset -->
+        <div class="section-label">Daily Report</div>
+        <div class="report-card">
+            <div class="report-card-header">
+                <div class="report-card-title">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    End-of-Day Summary
+                </div>
+                <span id="report-date-label" style="font-size:0.78rem;color:#9ca3af;font-weight:600;"></span>
+            </div>
+            <div class="report-body">
+                <!-- Payment Summary -->
+                <div class="rpt-payment-summary">
+                    <div class="rpt-pay-box rpt-cash-box">
+                        <div class="rpt-pay-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                        <div class="rpt-pay-info">
+                            <span class="rpt-pay-label">Cash</span>
+                            <span class="rpt-pay-value" id="rpt-cash">—</span>
+                            <span class="rpt-pay-count" id="rpt-cash-count">0 orders</span>
+                        </div>
+                    </div>
+                    <div class="rpt-pay-box rpt-online-box">
+                        <div class="rpt-pay-icon"><i class="fas fa-mobile-alt"></i></div>
+                        <div class="rpt-pay-info">
+                            <span class="rpt-pay-label">Online</span>
+                            <span class="rpt-pay-value" id="rpt-upi">—</span>
+                            <span class="rpt-pay-count" id="rpt-upi-count">0 orders</span>
+                        </div>
+                    </div>
+                    <div class="rpt-pay-box rpt-grand-box">
+                        <div class="rpt-pay-icon"><i class="fas fa-rupee-sign"></i></div>
+                        <div class="rpt-pay-info">
+                            <span class="rpt-pay-label">Grand Total</span>
+                            <span class="rpt-pay-value" id="rpt-revenue">—</span>
+                            <span class="rpt-pay-count" id="rpt-orders">0 orders</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Breakdown -->
+                <div class="rpt-cat-section">
+                    <div class="rpt-section-title"><i class="fas fa-th-large"></i> Category-wise Breakdown</div>
+                    <div class="rpt-cat-grid" id="rpt-cat-grid">
+                        <!-- Injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Top Selling Items -->
+                <div class="rpt-top-section">
+                    <div class="rpt-section-title"><i class="fas fa-fire"></i> Top Selling Items</div>
+                    <div class="rpt-top-list" id="rpt-top-list">
+                        <!-- Injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Report Actions -->
+                <div class="report-actions">
+                    <button class="report-btn report-btn-green" id="btn-gen-report">
+                        <i class="fas fa-file-pdf"></i>
+                        <span>Generate PDF<br><small>Full detailed report</small></span>
+                    </button>
+                    <button class="report-btn report-btn-wa" id="btn-whatsapp-report">
+                        <i class="fab fa-whatsapp"></i>
+                        <span>WhatsApp<br><small>Share summary</small></span>
+                    </button>
+                    <button class="report-btn report-btn-reset" id="btn-end-day">
+                        <i class="fas fa-archive"></i>
+                        <span>End Day<br><small>Archive & reset</small></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+<!-- Quick Actions -->
+        <div class="section-label">Quick Actions</div>
+        <div class="quick-actions" role="region" aria-label="Quick actions">
+            <button class="action-btn" id="btn-customer-site" aria-label="Open customer ordering site">
+                <div class="action-icon orange"><i class="fas fa-external-link-alt"></i></div>
+                <div class="action-title">Customer Site</div>
+                <div class="action-desc">Open the ordering page</div>
+            </button>
+            <button class="action-btn coming-soon-btn" aria-label="Analytics (coming soon)">
+                <div class="action-icon blue"><i class="fas fa-chart-bar"></i></div>
+                <div class="action-title">Analytics</div>
+                <div class="action-desc">Sales trends & insights</div>
+            </button>
+            <button class="action-btn full coming-soon-btn" aria-label="Menu management (coming soon)">
+                <div class="action-icon gray"><i class="fas fa-utensils"></i></div>
+                <div class="action-text">
+                    <div class="action-title">Menu Management</div>
+                    <div class="action-desc">Edit items, prices & categories</div>
+                </div>
+                <span class="coming-pill">Coming Soon</span>
+            </button>
+        </div>
+
+        <!-- Session Info -->
+        <div class="section-label">Session Info</div>
+        <div class="info-card">
+            <div class="info-card-title"><i class="fas fa-user-shield"></i> Admin Account</div>
+            <div class="info-row">
+                <span class="info-row-label"><i class="fas fa-envelope"></i>Email</span>
+                <span class="info-row-value" id="info-email">—</span>
+            </div>
+            <div class="info-row">
+                <span class="info-row-label"><i class="fas fa-clock"></i>Signed in at</span>
+                <span class="info-row-value" id="info-login-time">—</span>
+            </div>
+            <div class="info-row">
+                <span class="info-row-label"><i class="fas fa-fingerprint"></i>UID</span>
+                <span class="info-row-value" id="info-uid" style="font-size:0.75rem; color:#9ca3af;">—</span>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="page-footer">
+            Sri Krishna Hotel &middot; Admin Panel &middot; Secured by Firebase
+        </div>
+
+    
+
+    <!-- ===== MANUAL BILL ENTRY MODAL (POS) ===== -->
+    <div class="modal-overlay" id="pos-modal" role="dialog" aria-modal="true" aria-labelledby="pos-modal-title">
+        <div class="modal pos-modal" style="max-width:520px; padding:0;">
+            <div class="modal-header" style="background:linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);">
+                <h3 id="pos-modal-title"><i class="fas fa-calculator"></i> Manual Bill Entry</h3>
+                <button class="modal-close" id="pos-modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body pos-body">
+                <!-- POS Line Items -->
+                <div id="pos-lines">
+                    <div class="pos-line" data-line="0">
+                        <!-- Mode Toggle -->
+                        <div class="pos-mode-toggle">
+                            <button type="button" class="pos-mode-btn active" data-mode="select" data-line="0">
+                                <i class="fas fa-list"></i> Select
+                            </button>
+                            <button type="button" class="pos-mode-btn" data-mode="new" data-line="0">
+                                <i class="fas fa-plus"></i> New
+                            </button>
+                        </div>
+                        <!-- Select Mode -->
+                        <div class="pos-select-mode" data-line="0">
+                            <div class="pos-field pos-item-field">
+                                <label>Food Item</label>
+                                <select class="pos-select" data-role="item" data-line="0">
+                                    <option value="" data-price="0">-- Select Item --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- New Mode (hidden by default) -->
+                        <div class="pos-new-mode" data-line="0" style="display:none;">
+                            <div class="pos-field pos-item-field">
+                                <label>Item Name</label>
+                                <input type="text" class="pos-input pos-new-name" data-role="new-name" data-line="0" placeholder="e.g. Tea, Milk">
+                            </div>
+                            <div class="pos-field pos-new-price-field">
+                                <label>Price (₹)</label>
+                                <input type="number" class="pos-input pos-new-price" data-role="new-price" data-line="0" placeholder="0" min="1">
+                            </div>
+                        </div>
+                        <div class="pos-field pos-qty-field">
+                            <label>Qty</label>
+                            <input type="number" class="pos-qty" data-role="qty" data-line="0" value="1" min="1" max="99">
+                        </div>
+                        <div class="pos-field pos-price-field">
+                            <label>Price</label>
+                            <div class="pos-price-display" data-role="price" data-line="0">₹0</div>
+                        </div>
+                        <div class="pos-field pos-total-field">
+                            <label>Total</label>
+                            <div class="pos-line-total" data-role="linetotal" data-line="0">₹0</div>
+                        </div>
+                        <button type="button" class="pos-remove-line" data-action="remove-line" data-line="0" title="Remove" style="display:none;">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="button" class="btn-add-line" id="btn-add-line">
+                    <i class="fas fa-plus-circle"></i> Add Another Item
+                </button>
+
+                <!-- Payment Method -->
+                <div class="pos-payment-section">
+                    <label class="pos-section-label"><i class="fas fa-wallet"></i> Payment Method</label>
+                    <div class="pos-payment-options">
+                        <label class="pos-payment-opt">
+                            <input type="radio" name="pos-payment" value="cash" checked>
+                            <span class="pos-pay-radio"></span>
+                            <i class="fas fa-hand-holding-usd"></i>
+                            <span>Cash</span>
+                        </label>
+                        <label class="pos-payment-opt">
+                            <input type="radio" name="pos-payment" value="qr">
+                            <span class="pos-pay-radio"></span>
+                            <i class="fas fa-qrcode"></i>
+                            <span>UPI / QR</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Customer Info (optional) -->
+                <div class="pos-customer-section">
+                    <label class="pos-section-label"><i class="fas fa-user"></i> Customer (Optional)</label>
+                    <div class="pos-customer-row">
+                        <input type="text" id="pos-customer-name" placeholder="Customer name" class="pos-input">
+                        <input type="tel" id="pos-customer-mobile" placeholder="Mobile" class="pos-input" maxlength="10" inputmode="numeric">
+                    </div>
+                    <input type="text" id="pos-table-number" placeholder="Table / Place" class="pos-input" style="margin-top:8px;">
+                </div>
+
+                <!-- Grand Total -->
+                <div class="pos-grand-total">
+                    <div class="pos-grand-label">Grand Total</div>
+                    <div class="pos-grand-amount" id="pos-grand-total">₹0</div>
+                </div>
+
+                <!-- Submit -->
+                <button type="button" class="btn-pos-submit" id="btn-pos-submit">
+                    <i class="fas fa-receipt"></i>
+                    <span>Submit Bill</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    </main>
+
+    <!-- Sticky Back Bar -->
+    <div class="sticky-back-bar">
+        <a href="index.html" class="back-bar-btn">
+            <i class="fas fa-store"></i>
+            <span>Back to Ordering Site</span>
+            <i class="fas fa-chevron-right back-arrow"></i>
+        </a>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import {
+            getAuth,
+            onAuthStateChanged,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import {
+            getFirestore,
+            collection,
+            getDocs,
+            addDoc,
+            doc,
+            updateDoc,
+            deleteDoc,
+            query,
+            where,
+            orderBy,
+            Timestamp,
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAXhng2PVJBg3YpigP-wVMi-AjRrW7GQPE",
+            authDomain: "srikrishnarestaurant-34f8a.firebaseapp.com",
+            projectId: "srikrishnarestaurant-34f8a",
+            storageBucket: "srikrishnarestaurant-34f8a.firebasestorage.app",
+            messagingSenderId: "395985566012",
+            appId: "1:395985566012:web:ab76f6074023dbafab8639",
+            measurementId: "G-ZENF42H745"
+        };
+
+        const app  = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db   = getFirestore(app);
+
+        // Expose to dashboard.js
+        window._adminDB      = db;
+        window._firestoreAPI = {
+            collection, getDocs, addDoc, doc, updateDoc, deleteDoc,
+            query, where, orderBy, Timestamp, serverTimestamp
+        };
+
+        // Sign out handler
+        window.addEventListener('admin-signout-requested', async () => {
+            try {
+                await signOut(auth);
+            } catch (err) {
+                console.error('[Firebase] signOut error:', err);
+                window.dispatchEvent(new CustomEvent('admin-signout-error', { detail: err.message }));
+            }
+        });
+
+        // Auth guard
+        let authResolved = false;
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                window.location.replace('Admin.html');
+                return;
+            }
+            if (authResolved) return;
+            authResolved = true;
+
+            document.body.classList.remove('auth-pending');
+            const overlay = document.getElementById('auth-overlay');
+            if (overlay) {
+                overlay.classList.add('hidden');
+                setTimeout(() => overlay.remove(), 500);
+            }
+
+            window._adminUser = user;
+            if (typeof window._dashboardInit === 'function') {
+                window._dashboardInit(user);
+            } else {
+                window.addEventListener('dashboard-ready', () => window._dashboardInit(user));
+            }
+        });
+    </script>
+
+    <script src="admin-dashboard.js" defer></script>
+</body>
+</html>

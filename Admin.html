@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Admin Login | Sri Krishna Hotel</title>
+    <meta name="description" content="Secure admin login for Sri Krishna Hotel management">
+    <meta name="theme-color" content="#e65100">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="icon" href="icon.jpeg" type="image/jpeg">
+    <link rel="apple-touch-icon" href="icon.jpeg">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <link rel="stylesheet" href="admin.css">
+
+    <style>
+    /* ===== LOGIN PAGE SPECIFIC ===== */
+    body {
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d1a0e 50%, #bf360c 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        padding-bottom: env(safe-area-inset-bottom, 16px);
+        min-height: 100dvh;
+        overflow-x: hidden;
+        position: relative;
+    }
+
+    /* Background pattern */
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image:
+            radial-gradient(circle at 20% 20%, rgba(230,81,0,0.15) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(191,54,12,0.1) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .login-wrapper {
+        width: 100%;
+        max-width: 420px;
+        position: relative;
+        z-index: 1;
+        animation: slideUp 0.45s ease;
+    }
+
+    /* ===== HOTEL BRAND ===== */
+    .brand-row {
+        text-align: center;
+        margin-bottom: 28px;
+        color: #fff;
+    }
+
+    .brand-logo {
+        width: 72px;
+        height: 72px;
+        border-radius: 18px;
+        overflow: hidden;
+        margin: 0 auto 14px;
+        border: 3px solid rgba(255,255,255,0.25);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+        background: rgba(255,255,255,0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.2rem;
+    }
+
+    .brand-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 15px;
+    }
+
+    .brand-name {
+        font-family: 'Sora', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin-bottom: 4px;
+    }
+
+    .brand-tagline {
+        font-size: 0.85rem;
+        opacity: 0.75;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        font-weight: 500;
+    }
+
+    /* ===== LOGIN CARD ===== */
+    .login-card {
+        background: #fff;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        overflow: hidden;
+    }
+
+    .card-header {
+        padding: 28px 28px 0;
+    }
+
+    .card-header h2 {
+        font-family: 'Sora', sans-serif;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 4px;
+    }
+
+    .card-header p {
+        font-size: 0.88rem;
+        color: #6b7280;
+    }
+
+    .card-body {
+        padding: 24px 28px 28px;
+    }
+
+    /* ===== PASSWORD WRAPPER (show/hide) ===== */
+    .input-wrapper {
+        position: relative;
+    }
+
+    .input-wrapper .form-input {
+        padding-right: 48px;
+    }
+
+    .toggle-password {
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #9ca3af;
+        cursor: pointer;
+        padding: 4px;
+        font-size: 1rem;
+        transition: color 0.2s;
+        touch-action: manipulation;
+    }
+
+    .toggle-password:hover { color: var(--primary); }
+
+    /* ===== SECURITY NOTE ===== */
+    .security-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        background: #eff6ff;
+        border: 1.5px solid #bfdbfe;
+        border-radius: var(--radius-sm);
+        padding: 11px 14px;
+        margin-bottom: 20px;
+        font-size: 0.83rem;
+        color: #1d4ed8;
+        line-height: 1.5;
+    }
+
+    .security-note i { flex-shrink: 0; margin-top: 1px; }
+
+    /* ===== FOOTER ===== */
+    .card-footer {
+        background: #f9fafb;
+        border-top: 1px solid #f3f4f6;
+        padding: 18px 28px;
+        text-align: center;
+        font-size: 0.95rem;
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .card-footer a {
+        color: var(--primary);
+        font-weight: 700;
+        font-size: 1rem;
+        transition: opacity 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .card-footer a:hover { opacity: 0.75; }
+
+    /* ===== SEPARATOR ===== */
+    .sep {
+        margin: 0 8px;
+        opacity: 0.4;
+    }
+
+    .card-footer { padding: 0; }
+
+    .back-to-order-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #f9fafb;
+        border-top: 1px solid #f3f4f6;
+        padding: 15px 28px calc(15px + env(safe-area-inset-bottom, 0px));
+        color: var(--primary);
+        font-weight: 600;
+        font-size: 0.9rem;
+        font-family: 'DM Sans', sans-serif;
+        text-decoration: none;
+        transition: background 0.18s;
+        border-radius: 0 0 20px 20px;
+    }
+
+    .back-to-order-btn:hover  { background: #fff3e0; }
+    .back-to-order-btn:active { background: #ffe0b2; }
+
+    .back-to-order-btn .fa-store { font-size: 1rem; flex-shrink: 0; }
+    .back-to-order-btn span { flex: 1; }
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0,0,0,0);
+        white-space: nowrap;
+    }
+
+    /* ===== LOADING OVERLAY ===== */
+    .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(230,81,0,0.95);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        z-index: 99999;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+        color: #fff;
+        font-family: 'Sora', sans-serif;
+    }
+
+    .loading-overlay.show {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    .loading-overlay .spinner {
+        width: 44px;
+        height: 44px;
+        border: 4px solid rgba(255,255,255,0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    .loading-overlay p {
+        font-size: 1rem;
+        font-weight: 600;
+        opacity: 0.9;
+    }
+
+    @media (min-width: 480px) {
+        .card-header { padding: 32px 36px 0; }
+        .card-body   { padding: 28px 36px 36px; }
+        .card-footer { padding: 18px 36px; }
+    }
+    </style>
+</head>
+<body>
+
+    <!-- Loading overlay shown during auth check -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <p>Checking session…</p>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast" role="status" aria-live="polite">
+        <i class="fas fa-check-circle" id="toast-icon"></i>
+        <span id="toast-message">Message</span>
+    </div>
+
+    <div class="login-wrapper">
+
+        <!-- Brand -->
+        <div class="brand-row">
+            <div class="brand-logo">
+                <img src="icon.jpeg" alt="Sri Krishna Hotel" width="72" height="72"
+                     loading="eager" onerror="this.style.display='none';this.parentElement.textContent='🍽️'">
+            </div>
+            <div class="brand-name">Sri Krishna Hotel</div>
+            <div class="brand-tagline">Admin Panel</div>
+        </div>
+
+        <!-- Login Card -->
+        <div class="login-card card slide-up">
+
+            <div class="card-header">
+                <h2>Sign in to continue</h2>
+                <p>Access your management dashboard</p>
+            </div>
+
+            <div class="card-body">
+
+                <!-- Error alert -->
+                <div class="alert alert-error" id="error-alert" role="alert" aria-live="assertive">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="error-text">Error message here</span>
+                </div>
+
+                <!-- Login form -->
+                <form id="login-form" novalidate autocomplete="on">
+
+                    <div class="form-group">
+                        <label class="form-label" for="email">
+                            <i class="fas fa-envelope"></i>
+                            Email Address
+                        </label>
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            class="form-input"
+                            placeholder="you@example.com"
+                            required
+                            autocomplete="email"
+                            inputmode="email"
+                            autofocus
+                            aria-required="true"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="password">
+                            <i class="fas fa-lock"></i>
+                            Password
+                        </label>
+                        <div class="input-wrapper">
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                class="form-input"
+                                placeholder="Your password"
+                                required
+                                autocomplete="current-password"
+                                aria-required="true"
+                            >
+                            <button type="button" class="toggle-password" id="toggle-password"
+                                    aria-label="Toggle password visibility" tabindex="-1">
+                                <i class="fas fa-eye" id="toggle-icon"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Security note -->
+                    <div class="security-note">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Secured with Firebase Authentication. For password reset, contact the restaurant owner.</span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg btn-full" id="btn-login">
+                        <i class="fas fa-sign-in-alt" id="btn-icon"></i>
+                        <span id="btn-text">Sign In</span>
+                    </button>
+
+                </form>
+            </div>
+
+            <div class="card-footer">
+                <a href="index.html" class="back-to-order-btn">
+                    <i class="fas fa-store"></i>
+                    <span>Back to Ordering Site</span>
+                    <i class="fas fa-chevron-right" style="font-size:0.75rem; opacity:0.65;"></i>
+                </a>
+            </div>
+
+        </div>
+        <!-- /login-card -->
+
+    </div>
+    <!-- /login-wrapper -->
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import {
+            getAuth,
+            signInWithEmailAndPassword,
+            onAuthStateChanged
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAXhng2PVJBg3YpigP-wVMi-AjRrW7GQPE",
+            authDomain: "srikrishnarestaurant-34f8a.firebaseapp.com",
+            projectId: "srikrishnarestaurant-34f8a",
+            storageBucket: "srikrishnarestaurant-34f8a.firebasestorage.app",
+            messagingSenderId: "395985566012",
+            appId: "1:395985566012:web:ab76f6074023dbafab8639",
+            measurementId: "G-ZENF42H745"
+        };
+
+        const app  = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Expose to admin-login.js
+        window._adminAuth = auth;
+        window._adminSignIn = signInWithEmailAndPassword;
+
+        // Show loading while checking session
+        const overlay = document.getElementById('loading-overlay');
+        overlay.classList.add('show');
+
+        // If already signed in → straight to dashboard
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            unsubscribe(); // run once
+            if (user) {
+                window.location.replace('dashboard.html');
+            } else {
+                overlay.classList.remove('show');
+            }
+        });
+    </script>
+
+    <script src="admin-login.js" defer></script>
+</body>
+</html>
