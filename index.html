@@ -360,6 +360,8 @@
     ============================================
     -->
 <base target="_blank">
+<base target="_blank">
+<base target="_blank">
 </head>
 <body>
     <div id="toast" class="toast">
@@ -387,6 +389,9 @@
             </div>
             <div class="header-right">
                 <button class="search-toggle" id="search-toggle" aria-label="Search"><i class="fas fa-search"></i></button>
+                <a href="Admin.html" class="admin-login-btn" id="admin-login-btn" title="Admin Login" style="width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,0.12);color:#fff;font-size:1rem;display:flex;align-items:center;justify-content:center;text-decoration:none;margin-right:2px;">
+                    <i class="fas fa-user-shield"></i>
+                </a>
                 <button class="gift-header-btn" id="gift-header-btn" title="🎁 Daily Gift Box - Click to see offers!" style="width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,0.12);color:#fff;font-size:1.2rem;display:flex;align-items:center;justify-content:center;margin-right:6px;cursor:pointer;border:none;position:relative">
                     🎁
                     <span id="gift-header-badge" style="position:absolute;top:-4px;right:-4px;width:18px;height:18px;background:#dc3545;color:#fff;border-radius:50%;font-size:0.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff">!</span>
@@ -763,8 +768,18 @@
                 return null;
             }
             try {
+                // orderDate: "YYYY-MM-DD" local date — used by dashboard daily filter
+                // This does NOT change any existing field, only adds orderDate if missing
+                const _now = new Date();
+                const _dd = String(_now.getDate()).padStart(2,'0');
+                const _mm = String(_now.getMonth()+1).padStart(2,'0');
+                const _yyyy = _now.getFullYear();
+                const _todayStr = `${_yyyy}-${_mm}-${_dd}`;
+
                 const orderData = {
                     ...order,
+                    orderDate: order.orderDate || _todayStr,
+                    source: 'WEB',  // Customer order from website/QR
                     createdAt: window.firebaseServerTimestamp ? window.firebaseServerTimestamp() : new Date().toISOString(),
                     _savedFrom: 'web'
                 };
