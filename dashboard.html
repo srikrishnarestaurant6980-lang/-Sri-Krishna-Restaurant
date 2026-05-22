@@ -1642,6 +1642,7 @@
             query, where, orderBy, Timestamp, serverTimestamp,
             onSnapshot
         };
+        window.dispatchEvent(new Event('admin-firestore-ready'));
 
         // Sign out handler
         window.addEventListener('admin-signout-requested', async () => {
