@@ -14,7 +14,7 @@ const FALLBACK_MENU_ITEMS = Object.freeze([
     { id: 1,  name: "Chicken Rice",      price: 90,  category: "Rice",        image: "chickenrice.webp", emoji: "🍛" },
     { id: 2,  name: "Egg Rice",          price: 80,  category: "Rice",        image: "eggrice.webp", emoji: "🍳" },
     { id: 3,  name: "Veg Rice",          price: 70,  category: "Rice",        image: "vegrice.webp", emoji: "🍚" },
-    { id: 4,  name: "Idly",              price: 10,  category: "Tiffin",      image: "idly1.webp", emoji: "🥮" },
+    { id: 4,  name: "Idly",              price: 10,  category: "Tiffin",      image: "https://www.google.com/imgres?q=vadai%20image%20in%20webp%20format%20for%20my%20website%20%20&imgurl=https%3A%2F%2Fpng.pngtree.com%2Fpng-vector%2F20260323%2Fourmid%2Fpngtree-authentic-fried-medu-vada-rings-with-traditional-dips-png-image_18691663.webp&imgrefurl=https%3A%2F%2Fpngtree.com%2Fso%2Fmedu-vada&docid=9IL7KrmDedfO_M&tbnid=E-Oqrh4bry8JeM&vet=12ahUKEwjxx77AlM2UAxWPmVYBHe4CNJkQnPAOegQIGxAB..i&w=540&h=360&hcb=2&ved=2ahUKEwjxx77AlM2UAxWPmVYBHe4CNJkQnPAOegQIGxAB", emoji: "🥮" },
     { id: 5,  name: "Vada",              price: 10,  category: "Tiffin",      image: "vada1.webp", emoji: "🍩" },
     { id: 6,  name: "Dosa",              price: 20,  category: "Tiffin",      image: "dosa.webp", emoji: "🥞" },
     { id: 7,  name: "Plain Dosa",        price: 50,  category: "Tiffin",      image: "plain dosa .webp", emoji: "🥞" },
