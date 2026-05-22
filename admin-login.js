@@ -67,6 +67,14 @@ loginForm.addEventListener('submit', async (e) => {
         const credential = await signIn(auth, email, password);
         const user = credential.user;
 
+        if (typeof window.isAllowedAdmin === 'function' && !window.isAllowedAdmin(user)) {
+            const { signOut } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+            await signOut(auth);
+            setLoading(false);
+            showError('This account is not authorized for admin access.');
+            return;
+        }
+
         // Save lightweight session metadata (NOT used as auth — Firebase handles that)
         saveSessionMeta(user);
 
