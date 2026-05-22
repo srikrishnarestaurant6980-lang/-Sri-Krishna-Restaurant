@@ -10,6 +10,11 @@
 
 'use strict';
 
+// ===== FORWARD DECLARATIONS =====
+// These are defined later in the file but referenced earlier
+let POS_MENU_ITEMS = [];  // Populated by loadPosMenuFromFirestore()
+
+
 // ===== TODAY DATE — single source of truth =====
 function getTodayDate() {
     const d  = new Date();
@@ -66,13 +71,18 @@ let _todayOrders = []; // holds only today's filtered orders
 
 // ===== INIT =====
 function initDashboard(user) {
-    console.log('[Dashboard] Init | session date:', TODAY, '| user:', user.email);
-    populateUserInfo(user);
-    updateSessionBadge();
-    startClock();
-    loadTodayOrders();
-    setupListeners();
-    startCleanupScheduler();
+    try {
+        console.log('[Dashboard] Init | session date:', TODAY, '| user:', user?.email);
+        populateUserInfo(user);
+        updateSessionBadge();
+        startClock();
+        loadTodayOrders();
+        setupListeners();
+        startCleanupScheduler();
+    } catch (err) {
+        console.error('[Dashboard] Init error:', err);
+        showToast('⚠️ Dashboard initialization failed', 'error');
+    }
 }
 
 window._dashboardInit = initDashboard;
@@ -93,6 +103,7 @@ function updateSessionBadge() {
 
 // ===== USER INFO =====
 function populateUserInfo(user) {
+    if (!user) return;
     const email   = user.email || 'Admin';
     const initial = (user.displayName || email)[0].toUpperCase();
     if (navAvatar)    navAvatar.textContent    = initial;
@@ -142,6 +153,7 @@ async function loadTodayOrders() {
         if (!db || !api) {
             console.warn('[Dashboard] Firestore not ready');
             renderOrdersEmpty('Firebase not ready. Please refresh.');
+            showPlaceholderStats();
             return;
         }
 
@@ -241,6 +253,10 @@ async function loadTodayOrdersFallback() {
 function computeAndDisplayStats() {
     let revenue = 0, cash = 0, upi = 0;
 
+    if (!_todayOrders || !Array.isArray(_todayOrders)) {
+        _todayOrders = [];
+    }
+
     _todayOrders.forEach(o => {
         const amt = typeof o.totalAmount === 'number' ? o.totalAmount : 0;
         revenue += amt;
@@ -289,7 +305,7 @@ function renderOrdersList(orders) {
 
     const frag = document.createDocumentFragment();
 
-    orders.forEach((order, idx) => {
+    safeOrders.forEach((order, idx) => {
         const item = document.createElement('div');
         item.className = 'order-item';
 
@@ -359,8 +375,145 @@ function updateReportSummary() {
     if (rptRevenue) rptRevenue.textContent = formatINR(revenue);
     if (rptCash)    rptCash.textContent    = formatINR(cash);
     if (rptUpi)     rptUpi.textContent     = formatINR(upi);
+
+    // Update order counts by payment method
+    let cashCount = 0, upiCount = 0;
+    _todayOrders.forEach(o => {
+        const pm = (o.paymentMethod || '').toLowerCase();
+        if (pm === 'cash') cashCount++;
+        else upiCount++;
+    });
+    const rptCashCount = document.getElementById('rpt-cash-count');
+    const rptUpiCount = document.getElementById('rpt-upi-count');
+    if (rptCashCount) rptCashCount.textContent = cashCount + ' order' + (cashCount !== 1 ? 's' : '');
+    if (rptUpiCount) rptUpiCount.textContent = upiCount + ' order' + (upiCount !== 1 ? 's' : '');
+
+    // Render category breakdown and top items
+    renderCategoryReport();
+    renderTopItemsReport();
 }
 
+
+
+// ===== CATEGORY REPORT =====
+function renderCategoryReport() {
+    const container = document.getElementById('rpt-cat-grid');
+    if (!container) return;
+
+    if (_todayOrders.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:0.9rem">No orders today</div>';
+        return;
+    }
+
+    // Build category data
+    const catData = {};
+    const catEmojis = {
+        'Rice': '🍚', 'Tiffin': '🥞', 'Biryani': '🍗', 'Meals': '🍱',
+        'Bread Items': '🍞', 'Egg Items': '🥚', 'Chicken': '🍗', 
+        'Noodles': '🍜', 'Semiya': '🍝', 'Others': '🍽️'
+    };
+
+    _todayOrders.forEach(order => {
+        if (!Array.isArray(order.items)) return;
+        order.items.forEach(item => {
+            const menuItem = POS_MENU_ITEMS.find(m => m.name === item.name);
+            const category = menuItem ? menuItem.category : 'Others';
+            if (!catData[category]) {
+                catData[category] = { qty: 0, revenue: 0, orders: 0 };
+            }
+            const qty = item.quantity || item.qty || 1;
+            catData[category].qty += qty;
+            catData[category].revenue += (item.price || 0) * qty;
+            catData[category].orders++;
+        });
+    });
+
+    const catOrder = ['Rice','Tiffin','Biryani','Meals','Bread Items','Egg Items','Chicken','Noodles','Semiya','Others'];
+    const sortedCats = Object.keys(catData).sort((a, b) => {
+        const ia = catOrder.indexOf(a);
+        const ib = catOrder.indexOf(b);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
+
+    const frag = document.createDocumentFragment();
+    sortedCats.forEach(cat => {
+        const data = catData[cat];
+        const card = document.createElement('div');
+        card.className = 'rpt-cat-card';
+        card.innerHTML = `
+            <div class="rpt-cat-header" onclick="this.parentElement.classList.toggle('open')">
+                <div class="rpt-cat-name">
+                    <span class="cat-emoji">${catEmojis[cat] || '🍽️'}</span>
+                    ${cat}
+                </div>
+                <div class="rpt-cat-summary">
+                    <span>${data.qty} items</span>
+                    <span>₹${data.revenue.toLocaleString('en-IN')}</span>
+                </div>
+                <i class="fas fa-chevron-down rpt-cat-toggle"></i>
+            </div>
+            <div class="rpt-cat-body">
+                <table class="rpt-cat-table">
+                    <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+                    <tbody>
+                        <tr><td>Items Sold</td><td>${data.qty}</td></tr>
+                        <tr><td>Revenue</td><td>₹${data.revenue.toLocaleString('en-IN')}</td></tr>
+                        <tr><td>Orders</td><td>${data.orders}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
+        frag.appendChild(card);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(frag);
+}
+
+// ===== TOP ITEMS REPORT =====
+function renderTopItemsReport() {
+    const container = document.getElementById('rpt-top-list');
+    if (!container) return;
+
+    if (_todayOrders.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:0.9rem">No orders today</div>';
+        return;
+    }
+
+    // Build item data
+    const itemData = {};
+    _todayOrders.forEach(order => {
+        if (!Array.isArray(order.items)) return;
+        order.items.forEach(item => {
+            const name = item.name || 'Unknown';
+            const qty = item.quantity || item.qty || 1;
+            const price = item.price || 0;
+            if (!itemData[name]) {
+                itemData[name] = { name, qty: 0, revenue: 0 };
+            }
+            itemData[name].qty += qty;
+            itemData[name].revenue += price * qty;
+        });
+    });
+
+    const sortedItems = Object.values(itemData).sort((a, b) => b.qty - a.qty).slice(0, 5);
+
+    const frag = document.createDocumentFragment();
+    sortedItems.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'rpt-top-item';
+        row.innerHTML = `
+            <div class="rpt-top-rank">${idx + 1}</div>
+            <div class="rpt-top-name">${item.name}</div>
+            <div class="rpt-top-qty"><strong>${item.qty}</strong> sold</div>
+            <div class="rpt-top-rev">₹${item.revenue.toLocaleString('en-IN')}</div>
+        `;
+        frag.appendChild(row);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(frag);
+}
 // ===================================================
 // GENERATE PDF REPORT
 // Step 1: Use _todayOrders (already filtered)
@@ -398,7 +551,7 @@ async function generatePDFReport() {
                     const price = it.price || 0;
                     const qty = it.quantity || it.qty || 1;
                     const itemTotal = price * qty;
-                    const menuItem = POS_MENU_ITEMS.find(m => m.name === name);
+                    const menuItem = POS_MENU_ITEMS && POS_MENU_ITEMS.find ? POS_MENU_ITEMS.find(m => m.name === name) : null;
                     const category = menuItem ? menuItem.category : 'Others';
 
                     if (!categoryMap[category]) {
@@ -612,7 +765,7 @@ function sendWhatsAppReport() {
 async function archiveAndReset() {
     closeResetModal();
 
-    if (_todayOrders.length === 0) {
+    if (!_todayOrders || _todayOrders.length === 0) {
         showToast('📋 No active orders today to clear', 'info');
         return;
     }
@@ -682,21 +835,26 @@ async function handleLogout() {
 
 // ===== EVENT LISTENERS =====
 function setupListeners() {
+    // Navigation & Auth
     if (btnLogout)        btnLogout.addEventListener('click', openLogoutModal);
     if (btnCancel)        btnCancel.addEventListener('click', closeLogoutModal);
     if (btnConfirmLogout) btnConfirmLogout.addEventListener('click', handleLogout);
     if (logoutModal)      logoutModal.addEventListener('click', e => { if (e.target === logoutModal) closeLogoutModal(); });
 
+    // Customer site link
     if (btnCustomerSite) btnCustomerSite.addEventListener('click', () => window.open('index.html', '_blank', 'noopener,noreferrer'));
 
+    // Report buttons
     if (btnGenReport)      btnGenReport.addEventListener('click', generatePDFReport);
     if (btnWhatsappReport) btnWhatsappReport.addEventListener('click', sendWhatsAppReport);
     if (btnEndDay)         btnEndDay.addEventListener('click', openResetModal);
 
+    // Reset modal
     if (btnResetCancel)  btnResetCancel.addEventListener('click', closeResetModal);
     if (btnResetConfirm) btnResetConfirm.addEventListener('click', archiveAndReset);
     if (resetModal)      resetModal.addEventListener('click', e => { if (e.target === resetModal) closeResetModal(); });
 
+    // Coming soon buttons (if any)
     document.querySelectorAll('.coming-soon-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const title = btn.querySelector('.action-title')?.textContent || 'This feature';
@@ -866,8 +1024,10 @@ async function cleanupOldArchives() {
 // Both Customer (WEB) and Admin (MANUAL) orders show for 1 hour only in Live Orders panel
 // After 1 hour, they are hidden from Live Orders but remain in database
 function filterLiveOrders(orders) {
+    if (!orders || !Array.isArray(orders)) return [];
     const oneHourAgo = Date.now() - LIVE_ORDER_TTL_MS;
     return orders.filter(o => {
+        if (!o) return false;
         const ts = o.createdAt?.seconds ? o.createdAt.seconds * 1000 : (o.timestamp || 0);
         return ts >= oneHourAgo;
     });
@@ -878,8 +1038,9 @@ function renderLiveOrders(orders) {
     const liveList = document.getElementById('live-orders-list');
     const liveCount = document.getElementById('live-orders-count');
     if (!liveList) return;
-    if (liveCount) liveCount.textContent = orders.length;
-    if (!orders || orders.length === 0) {
+    const safeOrders = orders || [];
+    if (liveCount) liveCount.textContent = safeOrders.length;
+    if (safeOrders.length === 0) {
         liveList.innerHTML = `
             <div class="orders-empty">
                 <i class="fas fa-bolt" style="color:#f59e0b"></i>
@@ -964,8 +1125,10 @@ function startCleanupScheduler() {
 //   - NEW: type custom name + price (for Tea, Milk, etc.)
 // ===================================================
 
-// ===== HARDCODED MENU ITEMS (from script.js) =====
-const POS_MENU_ITEMS = [
+// ===== POS MENU ITEMS — LOADED FROM FIRESTORE =====
+// Same data source as customer site — admin edits update everywhere
+
+const FALLBACK_POS_MENU = [
     { name: "Chicken Rice",      price: 90,  category: "Rice" },
     { name: "Egg Rice",          price: 80,  category: "Rice" },
     { name: "Veg Rice",          price: 70,  category: "Rice" },
@@ -997,6 +1160,79 @@ const POS_MENU_ITEMS = [
     { name: "Egg Semiya",        price: 60,  category: "Semiya" },
     { name: "Veg Semiya",        price: 60,  category: "Semiya" }
 ];
+
+// ===== LOAD POS MENU FROM FIRESTORE =====
+async function loadPosMenuFromFirestore() {
+    try {
+        const db = window._adminDB;
+        const api = window._firestoreAPI;
+        if (!db || !api) {
+            POS_MENU_ITEMS = [...FALLBACK_POS_MENU];
+            return;
+        }
+
+        const { collection, getDocs } = api;
+        const snap = await getDocs(collection(db, 'menu_items'));
+
+        const items = [];
+        snap.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.active === false) return;
+            items.push({
+                name: data.name,
+                price: data.price,
+                category: data.category
+            });
+        });
+
+        if (items.length > 0) {
+            POS_MENU_ITEMS = items;
+            console.log('[POS] Loaded', items.length, 'items from Firestore');
+        } else {
+            POS_MENU_ITEMS = [...FALLBACK_POS_MENU];
+        }
+
+        // Refresh POS dropdowns if modal is open
+        populatePosSelects();
+
+    } catch (err) {
+        console.error('[POS] Load error:', err);
+        POS_MENU_ITEMS = [...FALLBACK_POS_MENU];
+    }
+}
+
+// Setup real-time listener for POS menu
+function setupPosMenuListener() {
+    try {
+        const db = window._adminDB;
+        const api = window._firestoreAPI;
+        if (!db || !api) return;
+
+        const { collection, onSnapshot } = api;
+        const q = collection(db, 'menu_items');
+
+        onSnapshot(q, (snapshot) => {
+            const items = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.active === false) return;
+                items.push({
+                    name: data.name,
+                    price: data.price,
+                    category: data.category
+                });
+            });
+
+            if (items.length > 0) {
+                POS_MENU_ITEMS = items;
+                populatePosSelects();
+                console.log('[POS] Real-time update:', items.length, 'items');
+            }
+        });
+    } catch(e) {
+        console.error('[POS] Listener error:', e);
+    }
+}
 
 // ===== DOM REFS =====
 let _posLineCount = 1;
@@ -1076,47 +1312,55 @@ function escapeHtml(text) {
 function createPosLineHTML(index) {
     return `
         <div class="pos-line" data-line="${index}">
-            <div class="pos-mode-toggle">
-                <button type="button" class="pos-mode-btn active" data-mode="select" data-line="${index}">
-                    <i class="fas fa-list"></i> Select
-                </button>
-                <button type="button" class="pos-mode-btn" data-mode="new" data-line="${index}">
-                    <i class="fas fa-plus"></i> New
-                </button>
-            </div>
-            <div class="pos-select-mode" data-line="${index}">
-                <div class="pos-field pos-item-field">
-                    <label>Food Item</label>
-                    <select class="pos-select" data-role="item" data-line="${index}">
-                        <option value="" data-price="0">-- Select Item --</option>
-                    </select>
+            <div class="pos-line-main">
+                <div class="pos-mode-toggle">
+                    <button type="button" class="pos-mode-btn active" data-mode="select" data-line="${index}">
+                        <i class="fas fa-list"></i> Select
+                    </button>
+                    <button type="button" class="pos-mode-btn" data-mode="new" data-line="${index}">
+                        <i class="fas fa-plus"></i> New
+                    </button>
+                </div>
+                <div class="pos-select-mode" data-line="${index}">
+                    <div class="pos-field pos-item-field">
+                        <label>Food Item</label>
+                        <select class="pos-select" data-role="item" data-line="${index}">
+                            <option value="" data-price="0">-- Select Item --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pos-new-mode" data-line="${index}" style="display:none;">
+                    <div class="pos-field pos-item-field">
+                        <label>Item Name</label>
+                        <input type="text" class="pos-input pos-new-name" data-role="new-name" data-line="${index}" placeholder="e.g. Tea, Milk">
+                    </div>
+                    <div class="pos-field pos-new-price-field">
+                        <label>Price (₹)</label>
+                        <input type="number" class="pos-input pos-new-price" data-role="new-price" data-line="${index}" placeholder="0" min="1">
+                    </div>
+                </div>
+                <div class="pos-qty-row">
+                    <div class="pos-field pos-qty-field">
+                        <label>Qty</label>
+                        <div class="pos-qty-control">
+                            <button type="button" class="pos-qty-btn pos-qty-minus" data-line="${index}"><i class="fas fa-minus"></i></button>
+                            <input type="number" class="pos-qty" data-role="qty" data-line="${index}" value="1" min="1" max="99" readonly>
+                            <button type="button" class="pos-qty-btn pos-qty-plus" data-line="${index}"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                    <div class="pos-field pos-price-field">
+                        <label>Price</label>
+                        <div class="pos-price-display" data-role="price" data-line="${index}">₹0</div>
+                    </div>
+                    <div class="pos-field pos-total-field">
+                        <label>Total</label>
+                        <div class="pos-line-total" data-role="linetotal" data-line="${index}">₹0</div>
+                    </div>
+                    <button type="button" class="pos-remove-line" data-action="remove-line" data-line="${index}" title="Remove" style="${_posLineCount > 1 ? '' : 'display:none;'}">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </div>
             </div>
-            <div class="pos-new-mode" data-line="${index}" style="display:none;">
-                <div class="pos-field pos-item-field">
-                    <label>Item Name</label>
-                    <input type="text" class="pos-input pos-new-name" data-role="new-name" data-line="${index}" placeholder="e.g. Tea, Milk">
-                </div>
-                <div class="pos-field pos-new-price-field">
-                    <label>Price (₹)</label>
-                    <input type="number" class="pos-input pos-new-price" data-role="new-price" data-line="${index}" placeholder="0" min="1">
-                </div>
-            </div>
-            <div class="pos-field pos-qty-field">
-                <label>Qty</label>
-                <input type="number" class="pos-qty" data-role="qty" data-line="${index}" value="1" min="1" max="99">
-            </div>
-            <div class="pos-field pos-price-field">
-                <label>Price</label>
-                <div class="pos-price-display" data-role="price" data-line="${index}">₹0</div>
-            </div>
-            <div class="pos-field pos-total-field">
-                <label>Total</label>
-                <div class="pos-line-total" data-role="linetotal" data-line="${index}">₹0</div>
-            </div>
-            <button type="button" class="pos-remove-line" data-action="remove-line" data-line="${index}" title="Remove" style="${_posLineCount > 1 ? '' : 'display:none;'}">
-                <i class="fas fa-trash-alt"></i>
-            </button>
         </div>
     `;
 }
@@ -1166,7 +1410,7 @@ function attachPosLineListeners() {
         };
     });
 
-    // Quantity inputs
+    // Quantity inputs (direct input + +/- buttons)
     posLinesContainer.querySelectorAll('.pos-qty[data-role="qty"]').forEach(inp => {
         inp.oninput = function() {
             let val = parseInt(this.value) || 1;
@@ -1175,6 +1419,31 @@ function attachPosLineListeners() {
             this.value = val;
             const line = this.closest('.pos-line');
             updatePosLine(line);
+        };
+    });
+
+    // +/- quantity buttons
+    posLinesContainer.querySelectorAll('.pos-qty-minus').forEach(btn => {
+        btn.onclick = function() {
+            const line = this.closest('.pos-line');
+            const qtyInp = line.querySelector('.pos-qty[data-role="qty"]') || line.querySelector('.pos-qty[data-role="qty"]');
+            let val = parseInt(qtyInp.value) || 1;
+            if (val > 1) {
+                qtyInp.value = val - 1;
+                updatePosLine(line);
+            }
+        };
+    });
+
+    posLinesContainer.querySelectorAll('.pos-qty-plus').forEach(btn => {
+        btn.onclick = function() {
+            const line = this.closest('.pos-line');
+            const qtyInp = line.querySelector('.pos-qty[data-role="qty"]') || line.querySelector('.pos-qty[data-role="qty"]');
+            let val = parseInt(qtyInp.value) || 1;
+            if (val < 99) {
+                qtyInp.value = val + 1;
+                updatePosLine(line);
+            }
         };
     });
 
@@ -1195,7 +1464,7 @@ function attachPosLineListeners() {
 
 // ===== UPDATE LINE CALCULATION =====
 function updatePosLine(lineEl) {
-    const qtyInp = lineEl.querySelector('.pos-qty[data-role="qty"]');
+    const qtyInp = lineEl.querySelector('.pos-qty[data-role="qty"]') || lineEl.querySelector('.pos-qty[data-role="qty"]');
     const priceEl = lineEl.querySelector('.pos-price-display[data-role="price"]');
     const totalEl = lineEl.querySelector('.pos-line-total[data-role="linetotal"]');
 
@@ -1241,7 +1510,7 @@ function updatePosGrandTotal() {
             price = parseFloat(priceInp?.value || 0);
         }
 
-        const qtyInp = line.querySelector('.pos-qty[data-role="qty"]');
+        const qtyInp = line.querySelector('.pos-qty[data-role="qty"]') || line.querySelector('.pos-qty[data-role="qty"]');
         const qty = parseInt(qtyInp?.value || 0);
         grand += price * qty;
     });
@@ -1283,7 +1552,7 @@ async function submitPosBill() {
     let totalAmount = 0;
 
     lines.forEach(line => {
-        const qtyInp = line.querySelector('.pos-qty[data-role="qty"]');
+        const qtyInp = line.querySelector('.pos-qty[data-role="qty"]') || line.querySelector('.pos-qty[data-role="qty"]');
         const qty = parseInt(qtyInp?.value || 0);
         if (qty <= 0) return;
 
@@ -1418,15 +1687,517 @@ function initPosSystem() {
     initPosDOMRefs();
     injectPosButton();
     setupPosListeners();
+    loadPosMenuFromFirestore().then(() => {
+        setupPosMenuListener();
+    });
     console.log('[POS] Manual Bill Entry system ready');
 }
 
 // Run init after dashboard is ready
+function tryInitPos() {
+    if (document.getElementById('pos-modal')) {
+        initPosSystem();
+    } else {
+        setTimeout(tryInitPos, 500);
+    }
+}
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initPosSystem);
+    document.addEventListener('DOMContentLoaded', tryInitPos);
 } else {
-    initPosSystem();
+    tryInitPos();
 }
 
 // Also expose for late init
 window._initPosSystem = initPosSystem;
+
+// ===================================================
+// MENU MANAGEMENT SYSTEM
+// Admin can edit food items - changes sync to Firestore
+// Customer site reads from same Firestore collection
+// ===================================================
+
+// ===== MENU MANAGEMENT DOM REFS =====
+let menuModal = null;
+let menuModalClose = null;
+let menuItemsContainer = null;
+let btnMenuAdd = null;
+let btnMenuSave = null;
+let menuSearchInput = null;
+
+// ===== MENU ITEMS CACHE =====
+let _menuItems = [];
+let _menuEditMode = false;
+let _menuEditId = null;
+
+// ===== INIT MENU MANAGEMENT =====
+function initMenuManagement() {
+    injectMenuButton();
+    initMenuDOMRefs();
+    setupMenuListeners();
+    loadMenuItems().then(() => {
+        if (menuModal && menuModal.classList.contains('open')) {
+            renderMenuItemsList(menuSearchInput?.value || '');
+        }
+    });
+    console.log('[MenuMgmt] Menu Management system ready');
+}
+
+function injectMenuButton() {
+    const quickActions = document.querySelector('.quick-actions');
+    if (!quickActions) return;
+
+    // Check if already injected
+    const existingBtn = document.getElementById('btn-menu-management');
+    if (existingBtn) return;
+
+    // ADD NEW button — do NOT modify existing "Coming Soon" buttons
+    const btn = document.createElement('button');
+    btn.id = 'btn-menu-management';
+    btn.className = 'action-btn';
+    btn.setAttribute('aria-label', 'Menu management');
+    btn.innerHTML = `
+        <div class="action-icon orange"><i class="fas fa-utensils"></i></div>
+        <div class="action-title">Menu Management</div>
+        <div class="action-desc">Edit prices & items</div>
+    `;
+    btn.addEventListener('click', openMenuModal);
+
+    // If a placeholder "Coming Soon" button exists for Menu Management, replace it
+    const coming = Array.from(quickActions.querySelectorAll('.coming-soon-btn')).find(n => {
+        return /menu management/i.test(n.textContent || n.innerText || '');
+    });
+    if (coming) {
+        quickActions.replaceChild(btn, coming);
+    } else {
+        // Otherwise insert as FIRST button in quick actions
+        quickActions.insertBefore(btn, quickActions.firstElementChild);
+    }
+}
+
+function initMenuDOMRefs() {
+    menuModal = document.getElementById('menu-modal');
+    menuModalClose = document.getElementById('menu-modal-close');
+    menuItemsContainer = document.getElementById('menu-items-container');
+    btnMenuAdd = document.getElementById('btn-menu-add');
+    btnMenuSave = document.getElementById('btn-menu-save');
+    menuSearchInput = document.getElementById('menu-search-input');
+}
+
+// ===== LOAD MENU ITEMS FROM FIRESTORE =====
+async function loadMenuItems() {
+    try {
+        const db = window._adminDB;
+        const api = window._firestoreAPI;
+        if (!db || !api) {
+            console.warn('[MenuMgmt] Firestore not ready');
+            // Fallback: use hardcoded items
+            _menuItems = [...POS_MENU_ITEMS];
+            return;
+        }
+
+        const { collection, getDocs } = api;
+        const snap = await getDocs(collection(db, 'menu_items'));
+
+        _menuItems = [];
+        snap.forEach(docSnap => {
+            const data = docSnap.data();
+            _menuItems.push({
+                _docId: docSnap.id,
+                id: data.id || docSnap.id,
+                name: data.name,
+                price: data.price,
+                category: data.category,
+                emoji: data.emoji || '🍽️',
+                image: data.image || '',
+                active: data.active !== false // default true
+            });
+        });
+
+        // Sort by category then name
+        _menuItems.sort((a, b) => {
+            const catOrder = ['Rice','Tiffin','Biryani','Meals','Bread Items','Egg Items','Chicken','Noodles','Semiya','Others'];
+            const ia = catOrder.indexOf(a.category);
+            const ib = catOrder.indexOf(b.category);
+            if (ia !== ib) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+            return a.name.localeCompare(b.name);
+        });
+
+        console.log('[MenuMgmt] Loaded', _menuItems.length, 'items from Firestore');
+
+        // If no items in Firestore, seed with default items
+        if (_menuItems.length === 0) {
+            await seedDefaultMenuItems();
+        }
+
+    } catch (err) {
+        console.error('[MenuMgmt] Load error:', err);
+        _menuItems = [...POS_MENU_ITEMS.map((item, idx) => ({...item, id: idx + 1, _docId: null}))];
+    }
+}
+
+// ===== SEED DEFAULT ITEMS TO FIRESTORE =====
+async function seedDefaultMenuItems() {
+    try {
+        const db = window._adminDB;
+        const api = window._firestoreAPI;
+        if (!db || !api) return;
+
+        const { collection, addDoc } = api;
+
+        const defaultItems = [
+            { id: 1,  name: "Chicken Rice",      price: 90,  category: "Rice",        image: "chickenrice.webp", emoji: "🍛", active: true },
+            { id: 2,  name: "Egg Rice",          price: 80,  category: "Rice",        image: "eggrice.webp", emoji: "🍳", active: true },
+            { id: 3,  name: "Veg Rice",          price: 70,  category: "Rice",        image: "vegrice.webp", emoji: "🍚", active: true },
+            { id: 4,  name: "Idly",              price: 10,  category: "Tiffin",      image: "https://www.foodie-trail.com/wp-content/uploads/2020/06/251fdbc0-57f6-41c3-a976-5192391cf040.jpg", emoji: "🥮", active: true },
+            { id: 5,  name: "Vada",              price: 10,  category: "Tiffin",      image: "vada.webp", emoji: "🍩", active: true },
+            { id: 6,  name: "Dosa",              price: 20,  category: "Tiffin",      image: "dosa.webp", emoji: "🥞", active: true },
+            { id: 7,  name: "Plain Dosa",        price: 50,  category: "Tiffin",      image: "plain dosa .webp", emoji: "🥞", active: true },
+            { id: 8,  name: "Set Dosa",          price: 50,  category: "Tiffin",      image: "set dosa.webp", emoji: "🥞", active: true },
+            { id: 9,  name: "Masala Dosa",       price: 70,  category: "Tiffin",      image: "masal dosa.webp", emoji: "🥞", active: true },
+            { id: 10, name: "Poori",             price: 40,  category: "Tiffin",      image: "poori.webp", emoji: "🫓", active: true },
+            { id: 11, name: "Chicken Biryani",   price: 100, category: "Biryani",     image: "chicken-biryani.webp", emoji: "🍗", active: true },
+            { id: 12, name: "Egg Biryani",       price: 80,  category: "Biryani",     image: "eggbiryani.webp", emoji: "🍳", active: true },
+            { id: 13, name: "Veg Biryani",       price: 70,  category: "Biryani",     image: "vegbiryani.webp", emoji: "🥗", active: true },
+            { id: 14, name: "Veg Meals",         price: 80,  category: "Meals",       image: "veg meals.webp", emoji: "🍱", active: true },
+            { id: 15, name: "Non Veg Meals",     price: 120, category: "Meals",       image: "non veg meals.webp", emoji: "🍱", active: true },
+            { id: 16, name: "Fish Meals",        price: 140, category: "Meals",       image: "fish meals.webp", emoji: "🐟", active: true },
+            { id: 17, name: "Bread",             price: 20,  category: "Bread Items", image: "bread.webp", emoji: "🍞", active: true },
+            { id: 18, name: "Veg Sandwich",      price: 80,  category: "Bread Items", image: "Veg sandwich .webp", emoji: "🥪", active: true },
+            { id: 19, name: "Chicken Sandwich",  price: 120, category: "Bread Items", image: "chicken sandwich .webp", emoji: "🥪", active: true },
+            { id: 20, name: "Omelette",          price: 20,  category: "Egg Items",   image: "Omelette .webp", emoji: "🍳", active: true },
+            { id: 21, name: "Half Boil",         price: 20,  category: "Egg Items",   image: "half boil.webp", emoji: "🥚", active: true },
+            { id: 22, name: "Boiled Egg",        price: 20,  category: "Egg Items",   image: "Boiled egg.webp", emoji: "🥚", active: true },
+            { id: 23, name: "Chicken 100g",      price: 40,  category: "Chicken",     image: "chicken 100g.webp", emoji: "🍗", active: true },
+            { id: 24, name: "Chicken 1kg",       price: 400, category: "Chicken",     image: "chicken 40g.webp", emoji: "🍗", active: true },
+            { id: 25, name: "Chicken Noodles",   price: 90,  category: "Noodles",     image: "chickennoodles.webp", emoji: "🍜", active: true },
+            { id: 26, name: "Veg Noodles",       price: 60,  category: "Noodles",     image: "veg noodles.webp", emoji: "🍜", active: true },
+            { id: 27, name: "Egg Noodles",       price: 80,  category: "Noodles",     image: "eggnoodles.webp", emoji: "🍜", active: true },
+            { id: 28, name: "Chicken Semiya",    price: 90,  category: "Semiya",      image: "chicken-semiya.webp", emoji: "🍝", active: true },
+            { id: 29, name: "Egg Semiya",        price: 60,  category: "Semiya",      image: "egg-semiya.webp", emoji: "🍝", active: true },
+            { id: 30, name: "Veg Semiya",        price: 60,  category: "Semiya",      image: "veg-semiya.webp", emoji: "🍝", active: true }
+        ];
+
+        for (const item of defaultItems) {
+            await addDoc(collection(db, 'menu_items'), item);
+        }
+
+        // Reload after seeding
+        await loadMenuItems();
+        showToast('✅ Menu items seeded to Firestore', 'success');
+
+    } catch (err) {
+        console.error('[MenuMgmt] Seed error:', err);
+    }
+}
+
+// ===== OPEN/CLOSE MODAL =====
+function openMenuModal() {
+    if (!menuModal) initMenuDOMRefs();
+    if (menuModal) {
+        menuModal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        resetMenuForm();
+
+        if (_menuItems.length === 0) {
+            loadMenuItems().then(() => renderMenuItemsList(menuSearchInput?.value || ''));
+        } else {
+            renderMenuItemsList(menuSearchInput?.value || '');
+        }
+    }
+}
+
+function closeMenuModal() {
+    if (!menuModal) initMenuDOMRefs();
+    if (menuModal) {
+        menuModal.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+}
+
+// ===== RENDER MENU ITEMS LIST =====
+function renderMenuItemsList(searchTerm = '') {
+    if (!menuItemsContainer) return;
+
+    let items = _menuItems;
+    if (searchTerm) {
+        const q = searchTerm.toLowerCase();
+        items = items.filter(i => i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q));
+    }
+
+    if (items.length === 0) {
+        menuItemsContainer.innerHTML = `
+            <div class="menu-empty">
+                <i class="fas fa-utensils" style="font-size:2rem;color:#ccc"></i>
+                <p>No items found</p>
+            </div>`;
+        return;
+    }
+
+    const frag = document.createDocumentFragment();
+
+    // Group by category
+    const catOrder = ['Rice','Tiffin','Biryani','Meals','Bread Items','Egg Items','Chicken','Noodles','Semiya','Others'];
+    const grouped = {};
+    items.forEach(item => {
+        const cat = item.category || 'Others';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(item);
+    });
+
+    const sortedCats = Object.keys(grouped).sort((a, b) => {
+        const ia = catOrder.indexOf(a);
+        const ib = catOrder.indexOf(b);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
+
+    sortedCats.forEach(cat => {
+        const catHeader = document.createElement('div');
+        catHeader.className = 'menu-cat-header';
+        catHeader.innerHTML = `<span class="menu-cat-name">${cat}</span><span class="menu-cat-count">${grouped[cat].length} items</span>`;
+        frag.appendChild(catHeader);
+
+        grouped[cat].forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'menu-item-row' + (item.active === false ? ' inactive' : '');
+            row.dataset.id = item._docId || item.id;
+            row.innerHTML = `
+                <div class="menu-item-info">
+                    <span class="menu-item-emoji">${item.emoji || '🍽️'}</span>
+                    <div class="menu-item-details">
+                        <span class="menu-item-name">${escapeHtml(item.name)}</span>
+                        <span class="menu-item-cat">${item.category}</span>
+                    </div>
+                </div>
+                <div class="menu-item-price">
+                    <span class="price-tag">₹${item.price}</span>
+                </div>
+                <div class="menu-item-actions">
+                    <button class="menu-btn-edit" data-id="${item._docId || item.id}" title="Edit">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="menu-btn-toggle ${item.active === false ? 'inactive' : 'active'}" data-id="${item._docId || item.id}" data-active="${item.active !== false}" title="${item.active !== false ? 'Disable' : 'Enable'}">
+                        <i class="fas ${item.active !== false ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                    </button>
+                    <button class="menu-btn-delete" data-id="${item._docId || item.id}" title="Delete">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            `;
+            frag.appendChild(row);
+        });
+    });
+
+    menuItemsContainer.innerHTML = '';
+    menuItemsContainer.appendChild(frag);
+
+    // Attach listeners
+    menuItemsContainer.querySelectorAll('.menu-btn-edit').forEach(btn => {
+        btn.addEventListener('click', () => startEditItem(btn.dataset.id));
+    });
+    menuItemsContainer.querySelectorAll('.menu-btn-toggle').forEach(btn => {
+        btn.addEventListener('click', () => toggleItemActive(btn.dataset.id, btn.dataset.active === 'true'));
+    });
+    menuItemsContainer.querySelectorAll('.menu-btn-delete').forEach(btn => {
+        btn.addEventListener('click', () => deleteItem(btn.dataset.id));
+    });
+}
+
+// ===== ADD/EDIT FORM =====
+function resetMenuForm() {
+    _menuEditMode = false;
+    _menuEditId = null;
+
+    const nameInp = document.getElementById('menu-item-name');
+    const priceInp = document.getElementById('menu-item-price');
+    const catSel = document.getElementById('menu-item-category');
+    const emojiInp = document.getElementById('menu-item-emoji');
+    const formTitle = document.getElementById('menu-form-title');
+
+    if (nameInp) nameInp.value = '';
+    if (priceInp) priceInp.value = '';
+    if (catSel) catSel.value = 'Rice';
+    if (emojiInp) emojiInp.value = '🍽️';
+    if (formTitle) formTitle.textContent = 'Add New Item';
+    if (btnMenuSave) btnMenuSave.innerHTML = '<i class="fas fa-plus"></i> Add Item';
+}
+
+function startEditItem(docId) {
+    const item = _menuItems.find(i => (i._docId || String(i.id)) === docId);
+    if (!item) return;
+
+    _menuEditMode = true;
+    _menuEditId = docId;
+
+    const nameInp = document.getElementById('menu-item-name');
+    const priceInp = document.getElementById('menu-item-price');
+    const catSel = document.getElementById('menu-item-category');
+    const emojiInp = document.getElementById('menu-item-emoji');
+    const formTitle = document.getElementById('menu-form-title');
+
+    if (nameInp) nameInp.value = item.name;
+    if (priceInp) priceInp.value = item.price;
+    if (catSel) catSel.value = item.category;
+    if (emojiInp) emojiInp.value = item.emoji || '🍽️';
+    if (formTitle) formTitle.textContent = 'Edit Item';
+    if (btnMenuSave) btnMenuSave.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+
+    // Scroll to form
+    document.getElementById('menu-form-section')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ===== SAVE ITEM =====
+async function saveMenuItem() {
+    const nameInp = document.getElementById('menu-item-name');
+    const priceInp = document.getElementById('menu-item-price');
+    const catSel = document.getElementById('menu-item-category');
+    const emojiInp = document.getElementById('menu-item-emoji');
+
+    const name = nameInp?.value.trim();
+    const price = parseFloat(priceInp?.value);
+    const category = catSel?.value;
+    const emoji = emojiInp?.value.trim() || '🍽️';
+
+    if (!name || name.length < 2) {
+        showToast('⚠️ Enter valid item name', 'error');
+        return;
+    }
+    if (!price || price <= 0 || isNaN(price)) {
+        showToast('⚠️ Enter valid price', 'error');
+        return;
+    }
+    if (!category) {
+        showToast('⚠️ Select category', 'error');
+        return;
+    }
+
+    btnMenuSave.disabled = true;
+    btnMenuSave.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Saving...';
+
+    try {
+        const db = window._adminDB;
+        const api = window._firestoreAPI;
+        if (!db || !api) throw new Error('Firebase not ready');
+
+        const { collection, addDoc, doc, updateDoc, serverTimestamp } = api;
+
+        const itemData = {
+            name,
+            price,
+            category,
+            emoji,
+            updatedAt: serverTimestamp ? serverTimestamp() : new Date().toISOString()
+        };
+
+        if (_menuEditMode && _menuEditId) {
+            // Update existing
+            const item = _menuItems.find(i => (i._docId || String(i.id)) === _menuEditId);
+            if (item && item._docId) {
+                await updateDoc(doc(db, 'menu_items', item._docId), itemData);
+                showToast('✅ Item updated!', 'success');
+            }
+        } else {
+            // Add new
+            const maxId = _menuItems.reduce((max, i) => Math.max(max, i.id || 0), 0);
+            itemData.id = maxId + 1;
+            itemData.active = true;
+            itemData.image = '';
+            itemData.createdAt = serverTimestamp ? serverTimestamp() : new Date().toISOString();
+
+            await addDoc(collection(db, 'menu_items'), itemData);
+            showToast('✅ Item added!', 'success');
+        }
+
+        // Reload and refresh
+        await loadMenuItems();
+        renderMenuItemsList(menuSearchInput?.value || '');
+        resetMenuForm();
+
+    } catch (err) {
+        console.error('[MenuMgmt] Save error:', err);
+        showToast('❌ Save failed: ' + err.message, 'error');
+    } finally {
+        btnMenuSave.disabled = false;
+        btnMenuSave.innerHTML = _menuEditMode ? '<i class="fas fa-save"></i> Save Changes' : '<i class="fas fa-plus"></i> Add Item';
+    }
+}
+
+// ===== TOGGLE ACTIVE =====
+async function toggleItemActive(docId, currentActive) {
+    try {
+        const db = window._adminDB;
+        const api = window._firestoreAPI;
+        if (!db || !api) return;
+
+        const { doc, updateDoc } = api;
+        const item = _menuItems.find(i => (i._docId || String(i.id)) === docId);
+        if (!item || !item._docId) return;
+
+        await updateDoc(doc(db, 'menu_items', item._docId), {
+            active: !currentActive
+        });
+
+        showToast(currentActive ? 'Item hidden from menu' : 'Item visible in menu', 'success');
+        await loadMenuItems();
+        renderMenuItemsList(menuSearchInput?.value || '');
+
+    } catch (err) {
+        console.error('[MenuMgmt] Toggle error:', err);
+        showToast('❌ Failed to toggle', 'error');
+    }
+}
+
+// ===== DELETE ITEM =====
+async function deleteItem(docId) {
+    if (!confirm('Are you sure you want to delete this item? This cannot be undone.')) return;
+
+    try {
+        const db = window._adminDB;
+        const api = window._firestoreAPI;
+        if (!db || !api) return;
+
+        const { doc, deleteDoc } = api;
+        const item = _menuItems.find(i => (i._docId || String(i.id)) === docId);
+        if (!item || !item._docId) return;
+
+        await deleteDoc(doc(db, 'menu_items', item._docId));
+
+        showToast('🗑️ Item deleted', 'success');
+        await loadMenuItems();
+        renderMenuItemsList(menuSearchInput?.value || '');
+
+    } catch (err) {
+        console.error('[MenuMgmt] Delete error:', err);
+        showToast('❌ Delete failed', 'error');
+    }
+}
+
+// ===== EVENT LISTENERS =====
+function setupMenuListeners() {
+    if (!menuModalClose) initMenuDOMRefs();
+    if (menuModalClose) menuModalClose.addEventListener('click', closeMenuModal);
+    if (menuModal) menuModal.addEventListener('click', e => { if (e.target === menuModal) closeMenuModal(); });
+    if (btnMenuAdd) btnMenuAdd.addEventListener('click', resetMenuForm);
+    if (btnMenuSave) btnMenuSave.addEventListener('click', saveMenuItem);
+    if (menuSearchInput) {
+        menuSearchInput.addEventListener('input', function() {
+            renderMenuItemsList(this.value);
+        });
+    }
+}
+
+// ===== INIT =====
+function tryInitMenu() {
+    if (document.getElementById('menu-modal')) {
+        initMenuManagement();
+    } else {
+        setTimeout(tryInitMenu, 500);
+    }
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryInitMenu);
+} else {
+    tryInitMenu();
+}
+
+// Also expose for late init
+window._initMenuManagement = initMenuManagement;
