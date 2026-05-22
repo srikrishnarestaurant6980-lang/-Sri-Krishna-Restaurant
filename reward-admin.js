@@ -19,7 +19,7 @@ const REWARD_ADMIN = {
 // ===== INIT =====
 async function initRewardAdmin() {
     try {
-        REWARD_ADMIN.db = window.db || (window._adminDB);
+        REWARD_ADMIN.db = window._adminDB || window.db;
         
         if (!REWARD_ADMIN.db) {
             console.warn('[Reward Admin] Firebase DB not available');
