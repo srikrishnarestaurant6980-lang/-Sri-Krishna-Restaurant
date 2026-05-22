@@ -17,8 +17,8 @@
     <link rel="preload" as="image" href="https://images.unsplash.com/photo-1630384060421-cb20aeb65535?w=800&q=60&fm=webp&auto=format" fetchpriority="high">
     <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
 
-    <link rel="icon" href="icon.jpeg" type="image/jpeg">
-    <link rel="apple-touch-icon" href="icon.jpeg">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🍽️</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🍽️</text></svg>">
 
     <style>
     :root{--primary:#e65100;--primary-dark:#bf360c;--secondary:#2e7d32;--bg:#f8f9fa;--card-bg:#fff;--text:#212529;--text-light:#6c757d;--border:#dee2e6;--shadow:0 2px 8px rgba(0,0,0,0.08);--radius:14px;--radius-sm:10px;--header-height:64px}
@@ -346,10 +346,6 @@
     <link rel="stylesheet" href="style.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="style.css"></noscript>
 
-    <base target="_blank">
-<base target="_blank">
-<base target="_blank">
-
     <!--
     ============================================
     ICON SETUP
@@ -359,7 +355,7 @@
     - Recommended size: 512x512px or 192x192px
     ============================================
     -->
-<base target="_blank">
+    <base target="_blank">
 <base target="_blank">
 <base target="_blank">
 </head>
@@ -379,7 +375,7 @@
         <div class="header-top">
             <div class="header-left">
                 <div class="logo">
-                    <img src="icon.jpeg" alt="Sri Krishna Hotel Logo" width="48" height="48" loading="eager" fetchpriority="high" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=font-size:2rem>🍽️</span>'">
+                    <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🍽️</text></svg>" alt="Sri Krishna Hotel Logo" width="48" height="48" loading="eager" fetchpriority="high" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=font-size:2rem>🍽️</span>'">
                 </div>
                 <div class="hotel-info">
                     <div class="hotel-title">Sri Krishna Restaurant</div>
@@ -607,7 +603,7 @@
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-location-dot"></i> Place / Table *</label>
-                        <input type="text" id="table-number" placeholder="Enter table number or parcel place" required autocomplete="off">
+                        <input type="text" id="table-number" placeholder="Enter table number or parcel place" required autocomplete="off" pattern="[a-zA-Z0-9\s,./#()'-]+" title="Letters, numbers, spaces allowed (e.g. Table 5, Counter, Parcel)">
                     </div>
                     <div class="form-group" id="order-notes-group">
                         <label><i class="fas fa-sticky-note"></i> Notes (Optional)</label>
@@ -623,7 +619,7 @@
                                 <span class="qr-subtitle">PhonePe QR | Works with most UPI apps</span>
                             </div>
                             <div class="qr-image-wrap">
-                                <img src="qr.jpeg" alt="PhonePe QR Code" class="qr-image" width="850" height="1600" loading="lazy">
+                                <img src="qr.jpeg" alt="PhonePe QR Code" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=padding:20px;text-align:center;color:#666>QR Code not available.<br>Please use UPI ID: <strong>9843336980@ibl</strong></div>'" class="qr-image" width="850" height="1600" loading="lazy">
                                 <div class="qr-amount-badge">Rs.<span id="qr-display-amount">0</span></div>
                             </div>
                             <div class="qr-upi-id">
@@ -733,12 +729,12 @@
             if (statusEl) statusEl.textContent = msg;
         };
 
-        window.initFirebase = async function() {
-            if (window.db) return window.db;
+        // Initialize Firebase immediately (not lazy)
+        async function initFirebaseNow() {
             try {
                 window.fbDebug('Loading Firebase modules...');
                 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js");
-                const { getFirestore, collection, addDoc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+                const { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, where } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
 
                 window.fbDebug('Initializing app...');
                 const app = initializeApp(firebaseConfig);
@@ -750,12 +746,74 @@
                 window.firebaseAddDoc = addDoc;
                 window.firebaseCollection = collection;
                 window.firebaseServerTimestamp = serverTimestamp;
+                window.firebaseOnSnapshot = onSnapshot;
+                window.firebaseQuery = query;
+                window.firebaseWhere = where;
 
                 window.fbDebug('Firebase connected successfully!');
+
+                // Setup real-time menu listener
+                setupMenuListener();
+
                 return db;
             } catch(e) {
                 window.fbDebug('Firebase Error: ' + e.message);
                 console.error('Firebase init error:', e);
+                return null;
+            }
+        }
+
+        // Real-time menu updates
+        function setupMenuListener() {
+            if (!window.db || !window.firebaseOnSnapshot) return;
+            try {
+                const q = window.firebaseQuery(
+                    window.firebaseCollection(window.db, 'menu_items'),
+                    window.firebaseWhere('active', '!=', false)
+                );
+                window.firebaseOnSnapshot(q, (snapshot) => {
+                    const items = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        items.push({
+                            id: data.id || 0,
+                            name: data.name,
+                            price: data.price,
+                            category: data.category,
+                            image: data.image || '',
+                            emoji: data.emoji || '🍽️'
+                        });
+                    });
+
+                    // Sort by category
+                    const catOrder = ['Rice','Tiffin','Biryani','Meals','Bread Items','Egg Items','Chicken','Noodles','Semiya','Others'];
+                    items.sort((a, b) => {
+                        const ia = catOrder.indexOf(a.category);
+                        const ib = catOrder.indexOf(b.category);
+                        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+                    });
+
+                    if (items.length > 0) {
+                        MENU_ITEMS = items;
+                        _menuLoaded = true;
+                        console.log('[Menu] Real-time update:', items.length, 'items');
+                        // Re-render if DOM ready
+                        if (document.getElementById('menu-container')) {
+                            renderMenu();
+                        }
+                    }
+                });
+            } catch(e) {
+                console.error('[Menu] Listener error:', e);
+            }
+        }
+
+        window.initFirebase = async function() {
+            if (window.db) return window.db;
+            try {
+                return await initFirebaseNow();
+            } catch (e) {
+                console.error('[Firebase] Init failed:', e);
                 return null;
             }
         };
@@ -768,8 +826,6 @@
                 return null;
             }
             try {
-                // orderDate: "YYYY-MM-DD" local date — used by dashboard daily filter
-                // This does NOT change any existing field, only adds orderDate if missing
                 const _now = new Date();
                 const _dd = String(_now.getDate()).padStart(2,'0');
                 const _mm = String(_now.getMonth()+1).padStart(2,'0');
@@ -779,7 +835,7 @@
                 const orderData = {
                     ...order,
                     orderDate: order.orderDate || _todayStr,
-                    source: 'WEB',  // Customer order from website/QR
+                    source: 'WEB',
                     createdAt: window.firebaseServerTimestamp ? window.firebaseServerTimestamp() : new Date().toISOString(),
                     _savedFrom: 'web'
                 };
@@ -794,9 +850,16 @@
             }
         };
 
-        console.log('[Firebase] Lazy init enabled - will load on first order');
+        // Initialize immediately
+        initFirebaseNow();
+
+        console.log('[Firebase] Initialized with real-time menu sync');
     </script>
 
     <script src="script.js" defer></script>
+    <!-- ===== REWARD SYSTEM MODULES (AUTO-CONNECTED) ===== -->
+    <script src="reward-system.js" defer></script>
+    <script src="reward-ui.js" defer></script>
+    <!-- ===== END REWARD SYSTEM ===== -->
 </body>
 </html>
