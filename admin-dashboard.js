@@ -23,6 +23,30 @@ function getTodayDate() {
     return `${d.getFullYear()}-${mm}-${dd}`;
 }
 const TODAY = getTodayDate();
+const DEFAULT_MENU_EMOJI = '\u{1F37D}\uFE0F';
+
+let _posMenuListenerStarted = false;
+
+function isAdminFirestoreReady() {
+    return Boolean(window._adminDB && window._firestoreAPI);
+}
+
+function normalizeMenuItem(item = {}, fallbackId = 0) {
+    return {
+        _docId: item._docId || null,
+        id: item.id != null ? item.id : fallbackId,
+        name: item.name || '',
+        price: Number(item.price) || 0,
+        category: item.category || 'Others',
+        emoji: item.emoji || DEFAULT_MENU_EMOJI,
+        image: item.image || '',
+        active: item.active !== false
+    };
+}
+
+function mapMenuFallbackItems(items = []) {
+    return items.map((item, index) => normalizeMenuItem(item, index + 1));
+}
 
 // ===== DOM REFS =====
 const navAvatar         = document.getElementById('nav-avatar');
@@ -1200,6 +1224,8 @@ async function loadPosMenuFromFirestore() {
 // Setup real-time listener for POS menu
 function setupPosMenuListener() {
     try {
+        if (_posMenuListenerStarted) return;
+
         const db = window._adminDB;
         const api = window._firestoreAPI;
         if (!db || !api) return;
@@ -1225,6 +1251,7 @@ function setupPosMenuListener() {
                 console.log('[POS] Real-time update:', items.length, 'items');
             }
         });
+        _posMenuListenerStarted = true;
     } catch(e) {
         console.error('[POS] Listener error:', e);
     }
@@ -1724,6 +1751,99 @@ let menuSearchInput = null;
 let _menuItems = [];
 let _menuEditMode = false;
 let _menuEditId = null;
+let _menuEditName = '';
+
+function hasMenuItemsWithDocIds() {
+    return _menuItems.some(item => Boolean(item._docId));
+}
+
+function findMenuItemByRef(ref, fallbackName = '') {
+    const refString = String(ref);
+    const normalizedName = String(fallbackName || '').trim().toLowerCase();
+    return _menuItems.find(item =>
+        item._docId === ref ||
+        String(item._docId || '') === refString ||
+        String(item.id) === refString ||
+        (normalizedName && String(item.name || '').trim().toLowerCase() === normalizedName)
+    );
+}
+
+function mergeMenuItemIntoCache(item) {
+    if (!item) return null;
+
+    const index = _menuItems.findIndex(existing =>
+        existing._docId === item._docId ||
+        String(existing.id) === String(item.id) ||
+        String(existing.name || '').trim().toLowerCase() === String(item.name || '').trim().toLowerCase()
+    );
+
+    if (index >= 0) {
+        _menuItems[index] = { ..._menuItems[index], ...item };
+        return _menuItems[index];
+    }
+
+    _menuItems.push(item);
+    return item;
+}
+
+async function resolveMenuItemForWrite(ref, fallbackName = '') {
+    let item = findMenuItemByRef(ref, fallbackName);
+    if (item && item._docId) return item;
+
+    if (isAdminFirestoreReady()) {
+        await ensureMenuItemsSyncedFromFirestore();
+        item = findMenuItemByRef(ref, fallbackName);
+        if (item && item._docId) return item;
+
+        const db = window._adminDB;
+        const api = window._firestoreAPI;
+        const { collection, getDocs, query, where } = api;
+        const menuCollection = collection(db, 'menu_items');
+        const refString = String(ref).trim();
+        const normalizedName = String(fallbackName || '').trim();
+
+        const snapshots = [];
+
+        if (normalizedName && query && where) {
+            snapshots.push(await getDocs(query(menuCollection, where('name', '==', normalizedName))));
+        }
+
+        if (refString && query && where && /^\d+$/.test(refString)) {
+            snapshots.push(await getDocs(query(menuCollection, where('id', '==', Number(refString)))));
+        }
+
+        for (const snapshot of snapshots) {
+            let resolved = null;
+            snapshot.forEach(docSnap => {
+                if (resolved) return;
+                const data = docSnap.data();
+                resolved = mergeMenuItemIntoCache(normalizeMenuItem({
+                    ...data,
+                    _docId: docSnap.id
+                }, data.id || 0));
+            });
+            if (resolved && resolved._docId) return resolved;
+        }
+    }
+
+    return findMenuItemByRef(ref, fallbackName) || null;
+}
+
+async function ensureMenuItemsSyncedFromFirestore() {
+    if (!isAdminFirestoreReady()) return false;
+
+    if (_menuItems.length === 0 || !hasMenuItemsWithDocIds()) {
+        await loadMenuItems();
+    }
+
+    return hasMenuItemsWithDocIds();
+}
+
+function refreshMenuItemsListIfOpen() {
+    if (menuModal && menuModal.classList.contains('open')) {
+        renderMenuItemsList(menuSearchInput?.value || '');
+    }
+}
 
 // ===== INIT MENU MANAGEMENT =====
 function initMenuManagement() {
@@ -1786,8 +1906,8 @@ async function loadMenuItems() {
         const api = window._firestoreAPI;
         if (!db || !api) {
             console.warn('[MenuMgmt] Firestore not ready');
-            // Fallback: use hardcoded items
-            _menuItems = [...POS_MENU_ITEMS];
+            const fallbackItems = POS_MENU_ITEMS.length > 0 ? POS_MENU_ITEMS : FALLBACK_POS_MENU;
+            _menuItems = mapMenuFallbackItems(fallbackItems);
             return;
         }
 
@@ -1827,7 +1947,8 @@ async function loadMenuItems() {
 
     } catch (err) {
         console.error('[MenuMgmt] Load error:', err);
-        _menuItems = [...POS_MENU_ITEMS.map((item, idx) => ({...item, id: idx + 1, _docId: null}))];
+        const fallbackItems = POS_MENU_ITEMS.length > 0 ? POS_MENU_ITEMS : FALLBACK_POS_MENU;
+        _menuItems = mapMenuFallbackItems(fallbackItems);
     }
 }
 
@@ -1887,18 +2008,24 @@ async function seedDefaultMenuItems() {
 }
 
 // ===== OPEN/CLOSE MODAL =====
-function openMenuModal() {
+async function openMenuModal() {
     if (!menuModal) initMenuDOMRefs();
     if (menuModal) {
         menuModal.classList.add('open');
         document.body.style.overflow = 'hidden';
         resetMenuForm();
 
-        if (_menuItems.length === 0) {
-            loadMenuItems().then(() => renderMenuItemsList(menuSearchInput?.value || ''));
-        } else {
-            renderMenuItemsList(menuSearchInput?.value || '');
+        try {
+            if (_menuItems.length === 0) {
+                await loadMenuItems();
+            } else if (!hasMenuItemsWithDocIds()) {
+                await ensureMenuItemsSyncedFromFirestore();
+            }
+        } catch (err) {
+            console.warn('[MenuMgmt] Modal refresh warning:', err);
         }
+
+        renderMenuItemsList(menuSearchInput?.value || '');
     }
 }
 
@@ -2002,6 +2129,7 @@ function renderMenuItemsList(searchTerm = '') {
 function resetMenuForm() {
     _menuEditMode = false;
     _menuEditId = null;
+    _menuEditName = '';
 
     const nameInp = document.getElementById('menu-item-name');
     const priceInp = document.getElementById('menu-item-price');
@@ -2018,11 +2146,12 @@ function resetMenuForm() {
 }
 
 function startEditItem(docId) {
-    const item = _menuItems.find(i => (i._docId || String(i.id)) === docId);
+    const item = findMenuItemByRef(docId);
     if (!item) return;
 
     _menuEditMode = true;
     _menuEditId = docId;
+    _menuEditName = item.name || '';
 
     const nameInp = document.getElementById('menu-item-name');
     const priceInp = document.getElementById('menu-item-price');
@@ -2086,11 +2215,12 @@ async function saveMenuItem() {
 
         if (_menuEditMode && _menuEditId) {
             // Update existing
-            const item = _menuItems.find(i => (i._docId || String(i.id)) === _menuEditId);
-            if (item && item._docId) {
-                await updateDoc(doc(db, 'menu_items', item._docId), itemData);
-                showToast('✅ Item updated!', 'success');
+            const item = await resolveMenuItemForWrite(_menuEditId, _menuEditName);
+            if (!item || !item._docId) {
+                throw new Error('Menu item not synced with Firestore yet. Please reopen Menu Management and try again.');
             }
+            await updateDoc(doc(db, 'menu_items', item._docId), itemData);
+            showToast('Item updated!', 'success');
         } else {
             // Add new
             const maxId = _menuItems.reduce((max, i) => Math.max(max, i.id || 0), 0);
@@ -2125,8 +2255,12 @@ async function toggleItemActive(docId, currentActive) {
         if (!db || !api) return;
 
         const { doc, updateDoc } = api;
-        const item = _menuItems.find(i => (i._docId || String(i.id)) === docId);
-        if (!item || !item._docId) return;
+        let item = findMenuItemByRef(docId);
+        const fallbackName = item?.name || '';
+        item = await resolveMenuItemForWrite(docId, fallbackName);
+        if (!item || !item._docId) {
+            throw new Error('Menu item not synced with Firestore yet.');
+        }
 
         await updateDoc(doc(db, 'menu_items', item._docId), {
             active: !currentActive
@@ -2152,8 +2286,12 @@ async function deleteItem(docId) {
         if (!db || !api) return;
 
         const { doc, deleteDoc } = api;
-        const item = _menuItems.find(i => (i._docId || String(i.id)) === docId);
-        if (!item || !item._docId) return;
+        let item = findMenuItemByRef(docId);
+        const fallbackName = item?.name || '';
+        item = await resolveMenuItemForWrite(docId, fallbackName);
+        if (!item || !item._docId) {
+            throw new Error('Menu item not synced with Firestore yet.');
+        }
 
         await deleteDoc(doc(db, 'menu_items', item._docId));
 
@@ -2179,6 +2317,32 @@ function setupMenuListeners() {
             renderMenuItemsList(this.value);
         });
     }
+}
+
+function handleAdminFirestoreReady() {
+    loadPosMenuFromFirestore()
+        .then(() => {
+            setupPosMenuListener();
+        })
+        .catch(err => {
+            console.error('[POS] Firestore refresh error:', err);
+        });
+
+    if (_menuItems.length === 0 || !hasMenuItemsWithDocIds()) {
+        loadMenuItems()
+            .then(() => {
+                refreshMenuItemsListIfOpen();
+            })
+            .catch(err => {
+                console.error('[MenuMgmt] Firestore refresh error:', err);
+            });
+    }
+}
+
+window.addEventListener('admin-firestore-ready', handleAdminFirestoreReady);
+
+if (isAdminFirestoreReady()) {
+    handleAdminFirestoreReady();
 }
 
 // ===== INIT =====
