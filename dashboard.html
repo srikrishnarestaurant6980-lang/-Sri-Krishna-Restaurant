@@ -9,8 +9,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <link rel="icon" href="icon.jpeg" type="image/jpeg">
-    <link rel="apple-touch-icon" href="icon.jpeg">
+    <!-- icon file removed because icon.jpeg is not present -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🍽️</text></svg>">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -380,7 +380,6 @@
 
     /* Mode Toggle */
     .pos-mode-toggle {
-        grid-column: 1 / -1;
         display: flex;
         gap: 8px;
         margin-bottom: 10px;
@@ -410,18 +409,19 @@
     }
     .pos-mode-btn:active { transform: scale(0.97); }
 
-    /* Line Layout */
+    /* Line Layout - Responsive */
     .pos-line {
-        display: grid;
-        grid-template-columns: 1fr 70px 70px 70px 36px;
-        gap: 8px;
-        align-items: end;
         background: #f9fafb;
         border: 1.5px solid #e5e7eb;
         border-radius: 12px;
         padding: 12px 10px;
         margin-bottom: 10px;
         animation: slideUp 0.2s ease;
+    }
+    .pos-line-main {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
     }
     .pos-field label {
         display: block;
@@ -450,18 +450,58 @@
         padding-right: 28px;
     }
     .pos-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(230,81,0,0.1); }
-    .pos-qty {
-        width: 100%;
-        padding: 10px 6px;
+
+    /* Quantity Control with +/- buttons */
+    .pos-qty-control {
+        display: flex;
+        align-items: center;
+        gap: 0;
         border: 2px solid #e5e7eb;
         border-radius: 10px;
-        font-size: 0.95rem;
+        overflow: hidden;
+        background: #fff;
+    }
+    .pos-qty-btn {
+        width: 36px;
+        height: 36px;
+        border: none;
+        background: #f3f4f6;
+        color: #374151;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s;
+        flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+    .pos-qty-btn:active { background: var(--primary); color: #fff; }
+    .pos-qty-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .pos-qty {
+        width: 44px;
+        height: 36px;
+        border: none;
+        border-left: 2px solid #e5e7eb;
+        border-right: 2px solid #e5e7eb;
+        font-size: 1rem;
         font-weight: 700;
         text-align: center;
         font-family: 'DM Sans', sans-serif;
         outline: none;
+        background: #fff;
+        -moz-appearance: textfield;
     }
-    .pos-qty:focus { border-color: var(--primary); }
+    .pos-qty::-webkit-outer-spin-button,
+    .pos-qty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .pos-qty-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto;
+        gap: 8px;
+        align-items: end;
+    }
     .pos-price-display, .pos-line-total {
         font-size: 0.9rem;
         font-weight: 700;
@@ -471,13 +511,14 @@
     }
     .pos-line-total { color: var(--primary); font-size: 1rem; }
     .pos-remove-line {
-        width: 32px; height: 32px;
+        width: 36px; height: 36px;
         border-radius: 8px;
         background: #fef2f2;
         color: #dc2626;
         display: flex; align-items: center; justify-content: center;
         font-size: 0.85rem; border: none; cursor: pointer;
         transition: all 0.15s;
+        flex-shrink: 0;
     }
     .pos-remove-line:hover { background: #fee2e2; }
     .pos-remove-line:active { transform: scale(0.9); }
@@ -622,17 +663,45 @@
     }
     .pos-empty-menu i { font-size: 2rem; margin-bottom: 8px; opacity: 0.4; }
     .pos-select-mode, .pos-new-mode { width: 100%; }
-    .pos-item-field { grid-column: 1 / -1; }
-    .pos-new-mode .pos-item-field { grid-column: auto; }
+    .pos-item-field { width: 100%; }
+
+    /* ===== RESPONSIVE POS ===== */
+    @media (max-width: 640px) {
+        .pos-qty-row {
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .pos-qty-field { grid-column: 1 / -1; }
+        .pos-qty-control { max-width: 160px; }
+        .pos-price-field { text-align: left; }
+        .pos-total-field { text-align: left; }
+        .pos-remove-line {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+        }
+        .pos-line { position: relative; padding-right: 40px; }
+    }
     @media (max-width: 480px) {
-        .pos-line { grid-template-columns: 1fr 55px 60px 60px 32px; gap: 5px; padding: 10px 8px; }
+        .pos-line { padding: 10px 8px; padding-right: 36px; }
         .pos-mode-btn { font-size: 0.78rem; padding: 7px 8px; }
-        .pos-select { font-size: 0.82rem; padding: 9px 8px; }
-        .pos-qty { padding: 9px 4px; font-size: 0.9rem; }
-        .pos-price-display, .pos-line-total { font-size: 0.82rem; padding: 9px 2px; }
+        .pos-select { font-size: 0.85rem; padding: 9px 8px; }
+        .pos-qty-btn { width: 32px; height: 32px; }
+        .pos-qty { width: 40px; height: 32px; font-size: 0.9rem; }
+        .pos-price-display, .pos-line-total { font-size: 0.85rem; padding: 8px 2px; }
         .pos-customer-row { grid-template-columns: 1fr; }
-        .pos-grand-amount { font-size: 1.5rem; }
+        .pos-grand-amount { font-size: 1.4rem; }
         .pos-new-name, .pos-new-price { padding: 9px 10px; font-size: 0.85rem; }
+        .pos-payment-opt { padding: 10px 12px; font-size: 0.85rem; }
+        .pos-body { padding: 14px 12px 20px; }
+    }
+    @media (max-width: 360px) {
+        .pos-qty-row { grid-template-columns: 1fr 1fr; }
+        .pos-qty-control { max-width: 140px; }
+        .pos-grand-amount { font-size: 1.2rem; }
+        .btn-pos-submit { padding: 14px; font-size: 0.95rem; }
     }
 
     
@@ -854,10 +923,229 @@
         .welcome-title { font-size: 1.1rem; }
     }
 
-    </style>
-<base target="_blank">
-<base target="_blank">
-<base target="_blank">
+    
+
+    /* ===== MENU MANAGEMENT STYLES ===== */
+    .menu-modal { padding: 0 !important; }
+    .menu-body { padding: 20px 18px 24px; max-height: 80dvh; overflow-y: auto; }
+
+    .menu-search-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #f9fafb;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 10px 14px;
+        margin-bottom: 16px;
+    }
+    .menu-search-wrap i { color: #9ca3af; font-size: 0.9rem; }
+    .menu-search-input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        font-size: 0.95rem;
+        font-family: 'DM Sans', sans-serif;
+        outline: none;
+        color: #1a1a1a;
+    }
+    .menu-search-input::placeholder { color: #9ca3af; }
+
+    .menu-form-section {
+        background: linear-gradient(135deg, #fff3e0, #fff7ed);
+        border: 2px solid #ffcc80;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 20px;
+    }
+    .menu-form-title {
+        font-family: 'Sora', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #92400e;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .menu-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .menu-form-field label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        margin-bottom: 5px;
+    }
+    .menu-form-input, .menu-form-select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-family: 'DM Sans', sans-serif;
+        outline: none;
+        transition: all 0.2s;
+        background: #fff;
+    }
+    .menu-form-input:focus, .menu-form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(230,81,0,0.1);
+    }
+    .menu-form-select {
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 28px;
+    }
+    .menu-form-actions {
+        display: flex;
+        gap: 10px;
+    }
+    .menu-form-actions .btn { flex: 1; justify-content: center; }
+
+    .menu-items-list { display: flex; flex-direction: column; gap: 2px; }
+
+    .menu-cat-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 8px 6px;
+        margin-top: 8px;
+        border-bottom: 2px solid #f3f4f6;
+    }
+    .menu-cat-name {
+        font-family: 'Sora', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .menu-cat-count {
+        font-size: 0.72rem;
+        color: #9ca3af;
+        font-weight: 600;
+    }
+
+    .menu-item-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 8px;
+        border-radius: 10px;
+        transition: background 0.15s;
+        border-bottom: 1px solid #f9fafb;
+    }
+    .menu-item-row:hover { background: #fafafa; }
+    .menu-item-row.inactive { opacity: 0.5; }
+
+    .menu-item-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        min-width: 0;
+    }
+    .menu-item-emoji {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+    .menu-item-details {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    .menu-item-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #1a1a1a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .menu-item-cat {
+        font-size: 0.72rem;
+        color: #9ca3af;
+        font-weight: 500;
+    }
+
+    .menu-item-price {
+        flex-shrink: 0;
+    }
+    .price-tag {
+        font-family: 'Sora', sans-serif;
+        font-size: 1rem;
+        font-weight: 800;
+        color: var(--primary);
+    }
+
+    .menu-item-actions {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+    .menu-btn-edit, .menu-btn-toggle, .menu-btn-delete {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .menu-btn-edit { background: #eff6ff; color: #2563eb; }
+    .menu-btn-edit:hover { background: #dbeafe; }
+    .menu-btn-toggle.active { background: #dcfce7; color: #16a34a; }
+    .menu-btn-toggle.inactive { background: #f3f4f6; color: #9ca3af; }
+    .menu-btn-delete { background: #fef2f2; color: #dc2626; }
+    .menu-btn-delete:hover { background: #fee2e2; }
+    .menu-btn-edit:active, .menu-btn-toggle:active, .menu-btn-delete:active { transform: scale(0.9); }
+
+    .menu-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 40px 20px;
+        color: #9ca3af;
+        gap: 8px;
+    }
+    .menu-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 30px;
+        color: #9ca3af;
+        font-size: 0.9rem;
+    }
+
+    @media (max-width: 480px) {
+        .menu-form-grid { grid-template-columns: 1fr; }
+        .menu-item-row { padding: 8px 6px; }
+        .menu-item-emoji { width: 32px; height: 32px; font-size: 1rem; }
+        .price-tag { font-size: 0.9rem; }
+    }
+</style>
+    <base target="_blank">
 <base target="_blank">
 <base target="_blank">
 </head>
@@ -912,7 +1200,7 @@
     <nav class="top-nav" role="navigation">
         <div class="nav-brand">
             <div class="nav-logo">
-                <img src="icon.jpeg" alt="Sri Krishna Hotel" width="36" height="36"
+                <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🍽️</text></svg>" alt="Sri Krishna Hotel" width="36" height="36"
                      onerror="this.style.display='none';this.parentElement.textContent='🍽️'">
             </div>
             <div>
@@ -1098,19 +1386,6 @@
                 <div class="action-title">Customer Site</div>
                 <div class="action-desc">Open the ordering page</div>
             </button>
-            <button class="action-btn coming-soon-btn" aria-label="Analytics (coming soon)">
-                <div class="action-icon blue"><i class="fas fa-chart-bar"></i></div>
-                <div class="action-title">Analytics</div>
-                <div class="action-desc">Sales trends & insights</div>
-            </button>
-            <button class="action-btn full coming-soon-btn" aria-label="Menu management (coming soon)">
-                <div class="action-icon gray"><i class="fas fa-utensils"></i></div>
-                <div class="action-text">
-                    <div class="action-title">Menu Management</div>
-                    <div class="action-desc">Edit items, prices & categories</div>
-                </div>
-                <span class="coming-pill">Coming Soon</span>
-            </button>
         </div>
 
         <!-- Session Info -->
@@ -1140,7 +1415,7 @@
 
     <!-- ===== MANUAL BILL ENTRY MODAL (POS) ===== -->
     <div class="modal-overlay" id="pos-modal" role="dialog" aria-modal="true" aria-labelledby="pos-modal-title">
-        <div class="modal pos-modal" style="max-width:520px; padding:0;">
+        <div class="modal pos-modal" style="max-width:600px; width:92%; padding:0;">
             <div class="modal-header" style="background:linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);">
                 <h3 id="pos-modal-title"><i class="fas fa-calculator"></i> Manual Bill Entry</h3>
                 <button class="modal-close" id="pos-modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
@@ -1149,50 +1424,59 @@
                 <!-- POS Line Items -->
                 <div id="pos-lines">
                     <div class="pos-line" data-line="0">
-                        <!-- Mode Toggle -->
-                        <div class="pos-mode-toggle">
-                            <button type="button" class="pos-mode-btn active" data-mode="select" data-line="0">
-                                <i class="fas fa-list"></i> Select
-                            </button>
-                            <button type="button" class="pos-mode-btn" data-mode="new" data-line="0">
-                                <i class="fas fa-plus"></i> New
-                            </button>
-                        </div>
-                        <!-- Select Mode -->
-                        <div class="pos-select-mode" data-line="0">
-                            <div class="pos-field pos-item-field">
-                                <label>Food Item</label>
-                                <select class="pos-select" data-role="item" data-line="0">
-                                    <option value="" data-price="0">-- Select Item --</option>
-                                </select>
+                        <div class="pos-line-main">
+                            <!-- Mode Toggle -->
+                            <div class="pos-mode-toggle">
+                                <button type="button" class="pos-mode-btn active" data-mode="select" data-line="0">
+                                    <i class="fas fa-list"></i> Select
+                                </button>
+                                <button type="button" class="pos-mode-btn" data-mode="new" data-line="0">
+                                    <i class="fas fa-plus"></i> New
+                                </button>
+                            </div>
+                            <!-- Select Mode -->
+                            <div class="pos-select-mode" data-line="0">
+                                <div class="pos-field pos-item-field">
+                                    <label>Food Item</label>
+                                    <select class="pos-select" data-role="item" data-line="0">
+                                        <option value="" data-price="0">-- Select Item --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <!-- New Mode (hidden by default) -->
+                            <div class="pos-new-mode" data-line="0" style="display:none;">
+                                <div class="pos-field pos-item-field">
+                                    <label>Item Name</label>
+                                    <input type="text" class="pos-input pos-new-name" data-role="new-name" data-line="0" placeholder="e.g. Tea, Milk">
+                                </div>
+                                <div class="pos-field pos-new-price-field">
+                                    <label>Price (₹)</label>
+                                    <input type="number" class="pos-input pos-new-price" data-role="new-price" data-line="0" placeholder="0" min="1">
+                                </div>
+                            </div>
+                            <!-- Quantity Row with +/- buttons -->
+                            <div class="pos-qty-row">
+                                <div class="pos-field pos-qty-field">
+                                    <label>Qty</label>
+                                    <div class="pos-qty-control">
+                                        <button type="button" class="pos-qty-btn pos-qty-minus" data-line="0"><i class="fas fa-minus"></i></button>
+                                        <input type="number" class="pos-qty" data-role="qty" data-line="0" value="1" min="1" max="99" readonly>
+                                        <button type="button" class="pos-qty-btn pos-qty-plus" data-line="0"><i class="fas fa-plus"></i></button>
+                                    </div>
+                                </div>
+                                <div class="pos-field pos-price-field">
+                                    <label>Price</label>
+                                    <div class="pos-price-display" data-role="price" data-line="0">₹0</div>
+                                </div>
+                                <div class="pos-field pos-total-field">
+                                    <label>Total</label>
+                                    <div class="pos-line-total" data-role="linetotal" data-line="0">₹0</div>
+                                </div>
+                                <button type="button" class="pos-remove-line" data-action="remove-line" data-line="0" title="Remove" style="display:none;">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
                             </div>
                         </div>
-                        <!-- New Mode (hidden by default) -->
-                        <div class="pos-new-mode" data-line="0" style="display:none;">
-                            <div class="pos-field pos-item-field">
-                                <label>Item Name</label>
-                                <input type="text" class="pos-input pos-new-name" data-role="new-name" data-line="0" placeholder="e.g. Tea, Milk">
-                            </div>
-                            <div class="pos-field pos-new-price-field">
-                                <label>Price (₹)</label>
-                                <input type="number" class="pos-input pos-new-price" data-role="new-price" data-line="0" placeholder="0" min="1">
-                            </div>
-                        </div>
-                        <div class="pos-field pos-qty-field">
-                            <label>Qty</label>
-                            <input type="number" class="pos-qty" data-role="qty" data-line="0" value="1" min="1" max="99">
-                        </div>
-                        <div class="pos-field pos-price-field">
-                            <label>Price</label>
-                            <div class="pos-price-display" data-role="price" data-line="0">₹0</div>
-                        </div>
-                        <div class="pos-field pos-total-field">
-                            <label>Total</label>
-                            <div class="pos-line-total" data-role="linetotal" data-line="0">₹0</div>
-                        </div>
-                        <button type="button" class="pos-remove-line" data-action="remove-line" data-line="0" title="Remove" style="display:none;">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
                     </div>
                 </div>
 
@@ -1244,7 +1528,68 @@
         </div>
     </div>
 
-    </main>
+    <!-- ===== MENU MANAGEMENT MODAL ===== -->
+    <div class="modal-overlay" id="menu-modal" role="dialog" aria-modal="true" aria-labelledby="menu-modal-title">
+        <div class="modal menu-modal" style="max-width:560px; padding:0; max-height:90dvh;">
+            <div class="modal-header" style="background:linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);">
+                <h3 id="menu-modal-title"><i class="fas fa-utensils"></i> Menu Management</h3>
+                <button class="modal-close" id="menu-modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body menu-body">
+                <div class="menu-search-wrap">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="menu-search-input" placeholder="Search items..." class="menu-search-input">
+                </div>
+                <div class="menu-form-section" id="menu-form-section">
+                    <div class="menu-form-title" id="menu-form-title">Add New Item</div>
+                    <div class="menu-form-grid">
+                        <div class="menu-form-field">
+                            <label>Item Name</label>
+                            <input type="text" id="menu-item-name" placeholder="e.g. Chicken Rice" class="menu-form-input">
+                        </div>
+                        <div class="menu-form-field">
+                            <label>Price (₹)</label>
+                            <input type="number" id="menu-item-price" placeholder="0" min="1" class="menu-form-input">
+                        </div>
+                        <div class="menu-form-field">
+                            <label>Category</label>
+                            <select id="menu-item-category" class="menu-form-select">
+                                <option value="Rice">Rice</option>
+                                <option value="Tiffin">Tiffin</option>
+                                <option value="Biryani">Biryani</option>
+                                <option value="Meals">Meals</option>
+                                <option value="Bread Items">Bread Items</option>
+                                <option value="Egg Items">Egg Items</option>
+                                <option value="Chicken">Chicken</option>
+                                <option value="Noodles">Noodles</option>
+                                <option value="Semiya">Semiya</option>
+                            </select>
+                        </div>
+                        <div class="menu-form-field">
+                            <label>Emoji</label>
+                            <input type="text" id="menu-item-emoji" placeholder="🍽️" class="menu-form-input" maxlength="4">
+                        </div>
+                    </div>
+                    <div class="menu-form-actions">
+                        <button type="button" class="btn btn-ghost" id="btn-menu-add">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btn-menu-save">
+                            <i class="fas fa-plus"></i> Add Item
+                        </button>
+                    </div>
+                </div>
+                <div class="menu-items-list" id="menu-items-container">
+                    <div class="menu-loading">
+                        <i class="fas fa-circle-notch fa-spin" style="color:var(--primary)"></i>
+                        Loading menu items…
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
 
     <!-- Sticky Back Bar -->
     <div class="sticky-back-bar">
@@ -1275,7 +1620,8 @@
             where,
             orderBy,
             Timestamp,
-            serverTimestamp
+            serverTimestamp,
+            onSnapshot
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -1296,7 +1642,8 @@
         window._adminDB      = db;
         window._firestoreAPI = {
             collection, getDocs, addDoc, doc, updateDoc, deleteDoc,
-            query, where, orderBy, Timestamp, serverTimestamp
+            query, where, orderBy, Timestamp, serverTimestamp,
+            onSnapshot
         };
 
         // Sign out handler
@@ -1336,5 +1683,42 @@
     </script>
 
     <script src="admin-dashboard.js" defer></script>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- REWARD ADMIN MODULE (AUTO-CONNECTED)                              -->
+    <!-- Automatically initializes when admin dashboard loads              -->
+    <!-- No manual setup needed - works immediately after file is added     -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <script src="reward-admin.js" defer></script>
+    <script defer>
+        (function() {
+            async function initRewardAdmin() {
+                if (window._rewardAdmin) {
+                    try {
+                        await window._rewardAdmin.init();
+                        console.log('[Dashboard] ✅ Reward admin ready');
+                    } catch (err) {
+                        console.error('[Dashboard] ❌ Init error:', err);
+                    }
+                }
+            }
+            document.addEventListener('dashboard-ready', function() {
+                setTimeout(initRewardAdmin, 500);
+            });
+            setTimeout(function() {
+                if (window._rewardAdmin && !document.getElementById('reward-admin-section')) {
+                    initRewardAdmin();
+                }
+            }, 3000);
+            setTimeout(function() {
+                if (window._rewardAdmin && !document.getElementById('reward-admin-section')) {
+                    initRewardAdmin();
+                }
+            }, 6000);
+        })();
+    </script>
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- END REWARD ADMIN                                                 -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
 </body>
 </html>
