@@ -89,6 +89,21 @@
     .nav-logout-btn:active { transform: scale(0.97); }
     @media (max-width: 360px) { .nav-logout-btn { padding: 10px 12px; font-size: 0.88rem; } }
 
+    /* Gift tracker */
+    .gift-track-loading, .gift-track-error { text-align:center; padding:24px; color:#6b7280; }
+    .gift-track-error { color:#dc2626; }
+    .gift-track-summary { background:#fff7ed; border:1px solid #ffcc80; border-radius:12px; padding:14px; margin-bottom:14px; }
+    .gift-track-row { display:flex; justify-content:space-between; padding:6px 0; font-size:0.9rem; border-bottom:1px solid #ffe0b2; }
+    .gift-track-row:last-child { border-bottom:none; }
+    .gift-track-days-label { font-size:0.78rem; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:8px; }
+    .gift-track-days { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+    .gift-track-day { aspect-ratio:1; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:0.7rem; font-weight:700; background:#f3f4f6; color:#6b7280; }
+    .gift-track-day.opened { background:#dcfce7; color:#166534; }
+    .gift-track-day.today { background:linear-gradient(135deg,#ff9800,#e65100); color:#fff; }
+    .gift-track-day.missed { background:#fee2e2; color:#991b1b; opacity:0.7; }
+    .gift-track-note { margin-top:12px; font-size:0.85rem; color:#92400e; text-align:center; }
+    .gift-track-note.success { color:#166534; font-weight:600; }
+
     /* ===== PAGE CONTENT ===== */
     .page-content { max-width: 800px; margin: 0 auto; padding: 24px 16px 40px; }
 
@@ -1408,7 +1423,7 @@
             Sri Krishna Hotel &middot; Admin Panel &middot; Secured by Firebase
         </div>
 
-    
+    </main>
 
     <!-- ===== MANUAL BILL ENTRY MODAL (POS) ===== -->
     <div class="modal-overlay" id="pos-modal" role="dialog" aria-modal="true" aria-labelledby="pos-modal-title">
@@ -1586,7 +1601,25 @@
         </div>
     </div>
 
-</main>
+    <!-- ===== GIFT BOX TRACKER MODAL ===== -->
+    <div class="modal-overlay" id="gift-tracker-modal" role="dialog" aria-modal="true" aria-labelledby="gift-tracker-title">
+        <div class="modal" style="max-width:480px; padding:0; max-height:90dvh;">
+            <div class="modal-header" style="background:linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);">
+                <h3 id="gift-tracker-title"><i class="fas fa-gift"></i> Gift Box Tracker</h3>
+                <button class="modal-close" id="gift-tracker-close" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <p style="font-size:0.88rem;color:#6b7280;margin-bottom:12px;">Enter customer mobile to see 10-day gift progress and coupon status.</p>
+                <div style="display:flex;gap:8px;margin-bottom:16px;">
+                    <input type="tel" id="gift-track-mobile" class="menu-form-input" placeholder="10-digit mobile" maxlength="10" inputmode="numeric" style="flex:1;">
+                    <button type="button" class="btn btn-primary" id="btn-gift-track-search" style="white-space:nowrap;">
+                        <i class="fas fa-search"></i> Track
+                    </button>
+                </div>
+                <div id="gift-tracker-result"></div>
+            </div>
+        </div>
+    </div>
 
     <!-- Sticky Back Bar -->
     <div class="sticky-back-bar">
@@ -1597,6 +1630,7 @@
         </a>
     </div>
 
+    <script src="admin-config.js"></script>
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -1609,6 +1643,7 @@
             getFirestore,
             collection,
             getDocs,
+            getDoc,
             addDoc,
             doc,
             updateDoc,
@@ -1638,7 +1673,7 @@
         // Expose to dashboard.js
         window._adminDB      = db;
         window._firestoreAPI = {
-            collection, getDocs, addDoc, doc, updateDoc, deleteDoc,
+            collection, getDocs, getDoc, addDoc, doc, updateDoc, deleteDoc,
             query, where, orderBy, Timestamp, serverTimestamp,
             onSnapshot
         };
@@ -1656,8 +1691,13 @@
 
         // Auth guard
         let authResolved = false;
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (!user) {
+                window.location.replace('Admin.html');
+                return;
+            }
+            if (window.isAllowedAdmin && !window.isAllowedAdmin(user)) {
+                await signOut(auth);
                 window.location.replace('Admin.html');
                 return;
             }
