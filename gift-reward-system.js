@@ -6,7 +6,7 @@
 //   - Keeps existing Gift Box UI (customers already familiar)
 //   - Stores ALL data in Firebase Firestore (not just localStorage)
 //   - 10-day cycle tracking with auto-reset
-//   - Admin dashboard integration
+//   - Admin dashboard integrationa
 //   - Claim workflow with notifications
 // =================================================================
 
