@@ -696,15 +696,11 @@ ${categoryHTML}
 
         const blob = new Blob([html], { type: 'text/html' });
         const url  = URL.createObjectURL(blob);
-        const win  = window.open(url, '_blank');
-
-        if (win) {
-            win.onload = () => setTimeout(() => { win.print(); URL.revokeObjectURL(url); }, 500);
-        } else {
-            const a = document.createElement('a');
-            a.href = url; a.download = `SriKrishna_Report_${TODAY}.html`; a.click();
-            setTimeout(() => URL.revokeObjectURL(url), 3000);
-        }
+        const a = document.createElement('a');
+        a.href = url; 
+        a.download = `SriKrishna_Report_${TODAY}.html`; 
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
 
         showToast('✅ Report ready — Save as PDF from print dialog', 'success');
 
@@ -752,7 +748,7 @@ function sendWhatsAppReport() {
         `_Generated via Admin Panel_`
     ].join('\n');
 
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_self', 'noopener,noreferrer');
     showToast('📲 Opening WhatsApp…', 'info');
 }
 
@@ -842,7 +838,7 @@ function setupListeners() {
     if (logoutModal)      logoutModal.addEventListener('click', e => { if (e.target === logoutModal) closeLogoutModal(); });
 
     // Customer site link
-    if (btnCustomerSite) btnCustomerSite.addEventListener('click', () => window.open('index.html', '_blank', 'noopener,noreferrer'));
+    if (btnCustomerSite) btnCustomerSite.addEventListener('click', () => window.open('index.html', '_self', 'noopener,noreferrer'));
 
     // Report buttons
     if (btnGenReport)      btnGenReport.addEventListener('click', generatePDFReport);
