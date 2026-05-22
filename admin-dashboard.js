@@ -48,6 +48,69 @@ function mapMenuFallbackItems(items = []) {
     return items.map((item, index) => normalizeMenuItem(item, index + 1));
 }
 
+function getMenuNameKey(name) {
+    return String(name || '').trim().toLowerCase();
+}
+
+function shouldPreferMenuItem(candidate, current) {
+    if (candidate.active !== false && current.active === false) return true;
+    if (current.active !== false && candidate.active === false) return false;
+    const cId = Number(candidate.id) || 9999;
+    const kId = Number(current.id) || 9999;
+    if (cId !== kId) return cId < kId;
+    if (candidate.image && !current.image) return true;
+    if (current.image && !candidate.image) return false;
+    return false;
+}
+
+function dedupeMenuItems(items = []) {
+    const uniqueMap = new Map();
+    const duplicates = [];
+
+    items.forEach(item => {
+        const key = getMenuNameKey(item.name);
+        if (!key) return;
+
+        if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, item);
+            return;
+        }
+
+        const kept = uniqueMap.get(key);
+        if (shouldPreferMenuItem(item, kept)) {
+            duplicates.push(kept);
+            uniqueMap.set(key, item);
+        } else {
+            duplicates.push(item);
+        }
+    });
+
+    return {
+        unique: Array.from(uniqueMap.values()),
+        duplicateDocIds: duplicates.map(d => d._docId).filter(Boolean)
+    };
+}
+
+async function removeDuplicateMenuDocs(docIds = []) {
+    if (!docIds.length || !isAdminFirestoreReady()) return 0;
+
+    const db = window._adminDB;
+    const api = window._firestoreAPI;
+    const { doc, deleteDoc } = api;
+    let removed = 0;
+
+    for (const docId of docIds) {
+        try {
+            await deleteDoc(doc(db, 'menu_items', docId));
+            removed++;
+        } catch (err) {
+            console.error('[MenuMgmt] Duplicate remove failed:', docId, err);
+        }
+    }
+
+    return removed;
+}
+
 // ===== DOM REFS =====
 const navAvatar         = document.getElementById('nav-avatar');
 const welcomeTitle      = document.getElementById('welcome-title');
@@ -329,7 +392,7 @@ function renderOrdersList(orders) {
 
     const frag = document.createDocumentFragment();
 
-    safeOrders.forEach((order, idx) => {
+    orders.forEach((order, idx) => {
         const item = document.createElement('div');
         item.className = 'order-item';
 
@@ -1198,16 +1261,16 @@ async function loadPosMenuFromFirestore() {
         snap.forEach(docSnap => {
             const data = docSnap.data();
             if (data.active === false) return;
-            items.push({
-                name: data.name,
-                price: data.price,
-                category: data.category
-            });
+            items.push(normalizeMenuItem({
+                ...data,
+                _docId: docSnap.id
+            }));
         });
 
-        if (items.length > 0) {
-            POS_MENU_ITEMS = items;
-            console.log('[POS] Loaded', items.length, 'items from Firestore');
+        const { unique } = dedupeMenuItems(items);
+        if (unique.length > 0) {
+            POS_MENU_ITEMS = unique;
+            console.log('[POS] Loaded', unique.length, 'items from Firestore');
         } else {
             POS_MENU_ITEMS = [...FALLBACK_POS_MENU];
         }
@@ -1235,20 +1298,20 @@ function setupPosMenuListener() {
 
         onSnapshot(q, (snapshot) => {
             const items = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
+            snapshot.forEach(docSnap => {
+                const data = docSnap.data();
                 if (data.active === false) return;
-                items.push({
-                    name: data.name,
-                    price: data.price,
-                    category: data.category
-                });
+                items.push(normalizeMenuItem({
+                    ...data,
+                    _docId: docSnap.id
+                }));
             });
 
-            if (items.length > 0) {
-                POS_MENU_ITEMS = items;
+            const { unique } = dedupeMenuItems(items);
+            if (unique.length > 0) {
+                POS_MENU_ITEMS = unique;
                 populatePosSelects();
-                console.log('[POS] Real-time update:', items.length, 'items');
+                console.log('[POS] Real-time update:', unique.length, 'items');
             }
         });
         _posMenuListenerStarted = true;
@@ -1914,20 +1977,26 @@ async function loadMenuItems() {
         const { collection, getDocs } = api;
         const snap = await getDocs(collection(db, 'menu_items'));
 
-        _menuItems = [];
+        const rawItems = [];
         snap.forEach(docSnap => {
             const data = docSnap.data();
-            _menuItems.push({
+            rawItems.push(normalizeMenuItem({
+                ...data,
                 _docId: docSnap.id,
-                id: data.id || docSnap.id,
-                name: data.name,
-                price: data.price,
-                category: data.category,
-                emoji: data.emoji || '🍽️',
-                image: data.image || '',
-                active: data.active !== false // default true
-            });
+                id: data.id || docSnap.id
+            }));
         });
+
+        const { unique, duplicateDocIds } = dedupeMenuItems(rawItems);
+        _menuItems = unique;
+
+        if (duplicateDocIds.length > 0) {
+            const removed = await removeDuplicateMenuDocs(duplicateDocIds);
+            if (removed > 0) {
+                console.log('[MenuMgmt] Removed', removed, 'duplicate items from Firestore');
+                showToast(`Removed ${removed} duplicate menu item(s)`, 'success');
+            }
+        }
 
         // Sort by category then name
         _menuItems.sort((a, b) => {
@@ -1940,8 +2009,8 @@ async function loadMenuItems() {
 
         console.log('[MenuMgmt] Loaded', _menuItems.length, 'items from Firestore');
 
-        // If no items in Firestore, seed with default items
-        if (_menuItems.length === 0) {
+        // Seed only when collection is completely empty
+        if (_menuItems.length === 0 && rawItems.length === 0) {
             await seedDefaultMenuItems();
         }
 
@@ -2010,23 +2079,16 @@ async function seedDefaultMenuItems() {
 // ===== OPEN/CLOSE MODAL =====
 async function openMenuModal() {
     if (!menuModal) initMenuDOMRefs();
-    if (menuModal) {
-        menuModal.classList.add('open');
-        document.body.style.overflow = 'hidden';
-        resetMenuForm();
+    if (!menuModal) return;
 
-        try {
-            if (_menuItems.length === 0) {
-                await loadMenuItems();
-            } else if (!hasMenuItemsWithDocIds()) {
-                await ensureMenuItemsSyncedFromFirestore();
-            }
-        } catch (err) {
-            console.warn('[MenuMgmt] Modal refresh warning:', err);
-        }
+    menuModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    resetMenuForm();
+    renderMenuItemsList(menuSearchInput?.value || '');
 
-        renderMenuItemsList(menuSearchInput?.value || '');
-    }
+    loadMenuItems()
+        .then(() => renderMenuItemsList(menuSearchInput?.value || ''))
+        .catch(err => console.warn('[MenuMgmt] Modal refresh warning:', err));
 }
 
 function closeMenuModal() {
@@ -2101,9 +2163,6 @@ function renderMenuItemsList(searchTerm = '') {
                     <button class="menu-btn-toggle ${item.active === false ? 'inactive' : 'active'}" data-id="${item._docId || item.id}" data-active="${item.active !== false}" title="${item.active !== false ? 'Disable' : 'Enable'}">
                         <i class="fas ${item.active !== false ? 'fa-eye' : 'fa-eye-slash'}"></i>
                     </button>
-                    <button class="menu-btn-delete" data-id="${item._docId || item.id}" title="Delete">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
                 </div>
             `;
             frag.appendChild(row);
@@ -2119,9 +2178,6 @@ function renderMenuItemsList(searchTerm = '') {
     });
     menuItemsContainer.querySelectorAll('.menu-btn-toggle').forEach(btn => {
         btn.addEventListener('click', () => toggleItemActive(btn.dataset.id, btn.dataset.active === 'true'));
-    });
-    menuItemsContainer.querySelectorAll('.menu-btn-delete').forEach(btn => {
-        btn.addEventListener('click', () => deleteItem(btn.dataset.id));
     });
 }
 
@@ -2186,6 +2242,14 @@ async function saveMenuItem() {
         showToast('⚠️ Enter valid item name', 'error');
         return;
     }
+
+    if (!_menuEditMode) {
+        const nameKey = getMenuNameKey(name);
+        if (_menuItems.some(item => getMenuNameKey(item.name) === nameKey)) {
+            showToast('⚠️ This item already exists in menu', 'error');
+            return;
+        }
+    }
     if (!price || price <= 0 || isNaN(price)) {
         showToast('⚠️ Enter valid price', 'error');
         return;
@@ -2214,13 +2278,13 @@ async function saveMenuItem() {
         };
 
         if (_menuEditMode && _menuEditId) {
-            // Update existing
             const item = await resolveMenuItemForWrite(_menuEditId, _menuEditName);
-            if (!item || !item._docId) {
-                throw new Error('Menu item not synced with Firestore yet. Please reopen Menu Management and try again.');
+            const docId = item?._docId || (String(_menuEditId).length > 10 ? String(_menuEditId) : null);
+            if (!docId) {
+                throw new Error('Could not find this item in Firestore. Refresh the list and try again.');
             }
-            await updateDoc(doc(db, 'menu_items', item._docId), itemData);
-            showToast('Item updated!', 'success');
+            await updateDoc(doc(db, 'menu_items', docId), itemData);
+            showToast('✅ Menu updated — customer site syncs automatically', 'success');
         } else {
             // Add new
             const maxId = _menuItems.reduce((max, i) => Math.max(max, i.id || 0), 0);
@@ -2273,35 +2337,6 @@ async function toggleItemActive(docId, currentActive) {
     } catch (err) {
         console.error('[MenuMgmt] Toggle error:', err);
         showToast('❌ Failed to toggle', 'error');
-    }
-}
-
-// ===== DELETE ITEM =====
-async function deleteItem(docId) {
-    if (!confirm('Are you sure you want to delete this item? This cannot be undone.')) return;
-
-    try {
-        const db = window._adminDB;
-        const api = window._firestoreAPI;
-        if (!db || !api) return;
-
-        const { doc, deleteDoc } = api;
-        let item = findMenuItemByRef(docId);
-        const fallbackName = item?.name || '';
-        item = await resolveMenuItemForWrite(docId, fallbackName);
-        if (!item || !item._docId) {
-            throw new Error('Menu item not synced with Firestore yet.');
-        }
-
-        await deleteDoc(doc(db, 'menu_items', item._docId));
-
-        showToast('🗑️ Item deleted', 'success');
-        await loadMenuItems();
-        renderMenuItemsList(menuSearchInput?.value || '');
-
-    } catch (err) {
-        console.error('[MenuMgmt] Delete error:', err);
-        showToast('❌ Delete failed', 'error');
     }
 }
 
@@ -2361,3 +2396,353 @@ if (document.readyState === 'loading') {
 
 // Also expose for late init
 window._initMenuManagement = initMenuManagement;
+
+// ===================================================
+// GIFT BOX TRACKER (Admin — mobile lookup)
+// ===================================================
+
+let giftTrackerModal = null;
+
+function initGiftTracker() {
+    injectGiftTrackerButton();
+    initGiftTrackerDOMRefs();
+    setupGiftTrackerListeners();
+    console.log('[GiftTracker] Ready');
+}
+
+function injectGiftTrackerButton() {
+    const quickActions = document.querySelector('.quick-actions');
+    if (!quickActions || document.getElementById('btn-gift-tracker')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'btn-gift-tracker';
+    btn.className = 'action-btn';
+    btn.setAttribute('aria-label', 'Gift box tracker');
+    btn.innerHTML = `
+        <div class="action-icon orange"><i class="fas fa-gift"></i></div>
+        <div class="action-title">Gift Box</div>
+        <div class="action-desc">Track by mobile</div>
+    `;
+    btn.addEventListener('click', openGiftTrackerModal);
+    const menuBtn = document.getElementById('btn-menu-management');
+    if (menuBtn) menuBtn.insertAdjacentElement('afterend', btn);
+    else quickActions.insertBefore(btn, quickActions.firstElementChild);
+}
+
+function initGiftTrackerDOMRefs() {
+    giftTrackerModal = document.getElementById('gift-tracker-modal');
+}
+
+function setupGiftTrackerListeners() {
+    const closeBtn = document.getElementById('gift-tracker-close');
+    const searchBtn = document.getElementById('btn-gift-track-search');
+    const mobileInp = document.getElementById('gift-track-mobile');
+
+    if (closeBtn) closeBtn.addEventListener('click', closeGiftTrackerModal);
+    if (giftTrackerModal) {
+        giftTrackerModal.addEventListener('click', e => {
+            if (e.target === giftTrackerModal) closeGiftTrackerModal();
+        });
+    }
+    if (searchBtn) searchBtn.addEventListener('click', lookupGiftCustomer);
+    if (mobileInp) {
+        mobileInp.addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, '').slice(0, 10);
+        });
+        mobileInp.addEventListener('keypress', e => {
+            if (e.key === 'Enter') lookupGiftCustomer();
+        });
+    }
+}
+
+function openGiftTrackerModal() {
+    if (!giftTrackerModal) initGiftTrackerDOMRefs();
+    if (giftTrackerModal) {
+        giftTrackerModal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        const result = document.getElementById('gift-tracker-result');
+        if (result) result.innerHTML = '';
+        const inp = document.getElementById('gift-track-mobile');
+        if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 100); }
+    }
+}
+
+function closeGiftTrackerModal() {
+    if (giftTrackerModal) {
+        giftTrackerModal.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+}
+
+function calcGiftDayFromStart(cycleStart) {
+    if (!cycleStart) return 1;
+    const start = new Date(cycleStart + 'T00:00:00');
+    const now = new Date();
+    const diff = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+    if (diff >= 10) return 11;
+    return Math.min(Math.max(diff + 1, 1), 10);
+}
+
+async function lookupGiftCustomer() {
+    const mobileInp = document.getElementById('gift-track-mobile');
+    const resultEl = document.getElementById('gift-tracker-result');
+    const searchBtn = document.getElementById('btn-gift-track-search');
+    if (!mobileInp || !resultEl) return;
+
+    const mobile = mobileInp.value.replace(/\D/g, '');
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+        showToast('⚠️ Enter valid 10-digit mobile', 'error');
+        return;
+    }
+
+    if (searchBtn) {
+        searchBtn.disabled = true;
+        searchBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Loading…';
+    }
+    resultEl.innerHTML = '<div class="gift-track-loading"><i class="fas fa-circle-notch fa-spin"></i> Loading…</div>';
+
+    try {
+        const db = window._adminDB;
+        const api = window._firestoreAPI;
+        let cycle = null;
+        let orderTotal = 0;
+
+        if (db && api) {
+            const { doc, getDoc, collection, query, where, getDocs } = api;
+            const cycleSnap = await getDoc(doc(db, 'rewards_cycles', mobile));
+            if (cycleSnap.exists()) cycle = cycleSnap.data();
+
+            const ordersQ = query(collection(db, 'orders'), where('customerMobile', '==', mobile));
+            const ordersSnap = await getDocs(ordersQ);
+            ordersSnap.forEach(d => { orderTotal += Number(d.data().totalAmount) || 0; });
+        }
+
+        const openedDays = Array.isArray(cycle?.openedDays)
+            ? [...new Set(cycle.openedDays.map(Number).filter(d => d >= 1 && d <= 10))].sort((a, b) => a - b)
+            : [];
+        const totalSpent = Number(cycle?.totalAmount) || orderTotal;
+        const currentDay = cycle?.cycleStart ? calcGiftDayFromStart(cycle.cycleStart) : 1;
+        const isNewCycle = currentDay >= 11;
+        const displayDay = isNewCycle ? 1 : currentDay;
+        const daysRemaining = isNewCycle ? 10 : Math.max(0, 10 - displayDay);
+
+        let couponValue = 0;
+        if (!isNewCycle && openedDays.length >= 10 && !cycle?.couponClaimed) {
+            if (totalSpent >= 2000) couponValue = 100;
+            else if (totalSpent >= 1000) couponValue = 50;
+        }
+
+        let daysHtml = '';
+        for (let d = 1; d <= 10; d++) {
+            const opened = openedDays.includes(d);
+            const isToday = !isNewCycle && d === displayDay;
+            const cls = opened ? 'opened' : (isToday ? 'today' : (d < displayDay ? 'missed' : 'locked'));
+            daysHtml += `<div class="gift-track-day ${cls}"><span>${d}</span>${opened ? '✅' : (isToday ? '🎁' : '🔒')}</div>`;
+        }
+
+        const claimStatus = cycle?.couponClaimed
+            ? (cycle?.claimStatus === 'approved' ? 'Approved' : 'Claim pending')
+            : (couponValue ? `₹${couponValue} coupon ready` : 'Not ready');
+
+        resultEl.innerHTML = `
+            <div class="gift-track-summary">
+                <div class="gift-track-row"><span>Mobile</span><strong>${mobile}</strong></div>
+                <div class="gift-track-row"><span>Customer</span><strong>${escapeHtml(cycle?.customerName || '—')}</strong></div>
+                <div class="gift-track-row"><span>Cycle</span><strong>${isNewCycle ? 'Day 11 — New cycle starts' : `Day ${displayDay} of 10`}</strong></div>
+                <div class="gift-track-row"><span>Days opened</span><strong>${openedDays.length}/10</strong></div>
+                <div class="gift-track-row"><span>Total spent</span><strong>₹${totalSpent.toLocaleString('en-IN')}</strong></div>
+                <div class="gift-track-row"><span>Days left</span><strong>${daysRemaining}</strong></div>
+                <div class="gift-track-row"><span>Coupon</span><strong>${claimStatus}</strong></div>
+                ${cycle?.cycleStart ? `<div class="gift-track-row"><span>Cycle start</span><strong>${cycle.cycleStart}</strong></div>` : ''}
+            </div>
+            <div class="gift-track-days-label">10-Day Gift Progress</div>
+            <div class="gift-track-days">${daysHtml}</div>
+            ${isNewCycle ? '<p class="gift-track-note">✨ 10 days completed — fresh gift box opens from Day 1</p>' : ''}
+            ${couponValue && !cycle?.couponClaimed ? `<p class="gift-track-note success">🎉 All 10 days done + spend OK — ₹${couponValue} coupon eligible</p>` : ''}
+        `;
+    } catch (err) {
+        console.error('[GiftTracker] Lookup error:', err);
+        resultEl.innerHTML = `<div class="gift-track-error">Could not load: ${escapeHtml(err.message)}</div>`;
+    } finally {
+        if (searchBtn) {
+            searchBtn.disabled = false;
+            searchBtn.innerHTML = '<i class="fas fa-search"></i> Track';
+        }
+    }
+}
+
+function tryInitGiftTracker() {
+    if (document.getElementById('gift-tracker-modal')) {
+        initGiftTracker();
+        initGiftClaimsPanel();
+    } else {
+        setTimeout(tryInitGiftTracker, 500);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryInitGiftTracker);
+} else {
+    tryInitGiftTracker();
+}
+
+// ===================================================
+// GIFT COUPON CLAIMS — live feed for admin
+// ===================================================
+
+let _giftClaimsUnsub = null;
+
+function initGiftClaimsPanel() {
+    if (document.getElementById('gift-claims-panel')) {
+        startGiftClaimsListener();
+        return;
+    }
+
+    const welcome = document.querySelector('.welcome-banner');
+    if (!welcome) return;
+
+    const panel = document.createElement('section');
+    panel.id = 'gift-claims-panel';
+    panel.className = 'gift-claims-panel';
+    panel.innerHTML = `
+        <div class="gift-claims-header">
+            <h3><i class="fas fa-bell"></i> Coupon Claims <span class="gift-claims-count" id="gift-claims-count">0</span></h3>
+            <small>Customer Day-10 claims appear here instantly</small>
+        </div>
+        <div id="gift-claims-list" class="gift-claims-list">
+            <div class="gift-claims-empty">No pending coupon claims</div>
+        </div>
+    `;
+    welcome.insertAdjacentElement('afterend', panel);
+
+    if (!document.getElementById('gift-claims-styles')) {
+        const style = document.createElement('style');
+        style.id = 'gift-claims-styles';
+        style.textContent = `
+            .gift-claims-panel{background:#fff;border:2px solid #ff9800;border-radius:16px;padding:16px;margin-bottom:20px;box-shadow:0 4px 14px rgba(255,152,0,0.15)}
+            .gift-claims-header h3{font-family:'Sora',sans-serif;font-size:1rem;color:#e65100;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+            .gift-claims-header small{color:#6b7280;font-size:0.8rem}
+            .gift-claims-count{background:#dc2626;color:#fff;border-radius:50px;padding:2px 10px;font-size:0.8rem}
+            .gift-claims-list{display:flex;flex-direction:column;gap:10px;margin-top:12px;max-height:320px;overflow-y:auto}
+            .gift-claim-card{background:#fff7ed;border:1px solid #ffcc80;border-radius:12px;padding:12px}
+            .gift-claim-card h4{font-size:0.95rem;margin-bottom:4px;color:#1a1a1a}
+            .gift-claim-meta{font-size:0.82rem;color:#666;line-height:1.5}
+            .gift-claim-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+            .gift-claim-btn{padding:8px 12px;border-radius:8px;font-size:0.82rem;font-weight:700;border:none;cursor:pointer}
+            .gift-claim-btn.approve{background:#dcfce7;color:#166534}
+            .gift-claim-btn.wa{background:#25D366;color:#fff}
+            .gift-claims-empty{text-align:center;padding:20px;color:#9ca3af;font-size:0.9rem}
+        `;
+        document.head.appendChild(style);
+    }
+
+    startGiftClaimsListener();
+}
+
+function renderGiftClaimsList(claims) {
+    const list = document.getElementById('gift-claims-list');
+    const countEl = document.getElementById('gift-claims-count');
+    if (!list) return;
+
+    if (countEl) countEl.textContent = claims.length;
+
+    if (!claims.length) {
+        list.innerHTML = '<div class="gift-claims-empty">No pending coupon claims</div>';
+        return;
+    }
+
+    list.innerHTML = '';
+    claims.forEach(claim => {
+        const card = document.createElement('div');
+        card.className = 'gift-claim-card';
+        const time = claim.claimTime ? new Date(claim.claimTime).toLocaleString('en-IN') : '—';
+        const waMsg = encodeURIComponent(
+            `🎁 Sri Krishna Hotel — Coupon Claim\nCustomer: ${claim.customerName}\nMobile: ${claim.mobile}\nReward: ₹${claim.couponValue}\nSpent: ₹${claim.totalAmount}\nClaim ID: ${claim.claimId}`
+        );
+        card.innerHTML = `
+            <h4>${escapeHtml(claim.customerName || 'Customer')} — ₹${claim.couponValue} coupon</h4>
+            <div class="gift-claim-meta">
+                📱 ${claim.mobile}<br>
+                💰 Total spent: ₹${(claim.totalAmount || 0).toLocaleString('en-IN')}<br>
+                📅 ${time}<br>
+                🆔 ${claim.claimId || claim.id}
+            </div>
+            <div class="gift-claim-actions">
+                <button class="gift-claim-btn approve" data-claim-id="${claim.claimId || claim.id}" data-mobile="${claim.mobile}">
+                    <i class="fas fa-check"></i> Approve
+                </button>
+                <a class="gift-claim-btn wa" href="https://wa.me/91${claim.mobile}?text=${waMsg}" target="_blank" rel="noopener">
+                    <i class="fab fa-whatsapp"></i> WhatsApp Customer
+                </a>
+            </div>
+        `;
+        card.querySelector('.approve')?.addEventListener('click', () => approveGiftClaim(claim));
+        list.appendChild(card);
+    });
+}
+
+async function approveGiftClaim(claim) {
+    const claimId = claim.claimId || claim.id;
+    const mobile = claim.mobile;
+    if (!claimId || !isAdminFirestoreReady()) return;
+
+    try {
+        const db = window._adminDB;
+        const api = window._firestoreAPI;
+        const { doc, updateDoc, serverTimestamp } = api;
+
+        await updateDoc(doc(db, 'rewards_claims', claimId), {
+            status: 'approved',
+            approvedAt: serverTimestamp(),
+            adminNotes: 'Approved from dashboard'
+        });
+
+        if (mobile) {
+            await updateDoc(doc(db, 'rewards_cycles', mobile), {
+                claimStatus: 'approved',
+                couponClaimed: true
+            });
+        }
+
+        showToast('✅ Coupon approved for ' + (claim.customerName || mobile), 'success');
+    } catch (err) {
+        console.error('[GiftClaims] Approve error:', err);
+        showToast('❌ Approve failed', 'error');
+    }
+}
+
+function startGiftClaimsListener() {
+    if (!isAdminFirestoreReady()) return;
+
+    const db = window._adminDB;
+    const api = window._firestoreAPI;
+    const { collection, query, where, onSnapshot } = api;
+
+    if (_giftClaimsUnsub) {
+        _giftClaimsUnsub();
+        _giftClaimsUnsub = null;
+    }
+
+    const q = query(collection(db, 'rewards_claims'), where('status', '==', 'pending'));
+
+    _giftClaimsUnsub = onSnapshot(q, (snapshot) => {
+        const claims = [];
+        snapshot.forEach(docSnap => {
+            claims.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        claims.sort((a, b) => {
+            const ta = a.claimTime ? new Date(a.claimTime).getTime() : 0;
+            const tb = b.claimTime ? new Date(b.claimTime).getTime() : 0;
+            return tb - ta;
+        });
+        renderGiftClaimsList(claims);
+    }, (err) => {
+        console.error('[GiftClaims] Listener error:', err);
+    });
+}
+
+window.addEventListener('admin-firestore-ready', () => {
+    if (document.getElementById('gift-claims-panel')) {
+        startGiftClaimsListener();
+    }
+});
