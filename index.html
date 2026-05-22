@@ -782,18 +782,27 @@
                         });
                     });
 
+                    const seen = new Map();
+                    const unique = [];
+                    items.forEach(item => {
+                        const key = String(item.name || '').trim().toLowerCase();
+                        if (!key || seen.has(key)) return;
+                        seen.set(key, true);
+                        unique.push(item);
+                    });
+
                     // Sort by category
                     const catOrder = ['Rice','Tiffin','Biryani','Meals','Bread Items','Egg Items','Chicken','Noodles','Semiya','Others'];
-                    items.sort((a, b) => {
+                    unique.sort((a, b) => {
                         const ia = catOrder.indexOf(a.category);
                         const ib = catOrder.indexOf(b.category);
                         return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
                     });
 
-                    if (items.length > 0) {
-                        MENU_ITEMS = items;
+                    if (unique.length > 0) {
+                        MENU_ITEMS = unique;
                         _menuLoaded = true;
-                        console.log('[Menu] Real-time update:', items.length, 'items');
+                        console.log('[Menu] Real-time update:', unique.length, 'items');
                         // Re-render if DOM ready
                         if (document.getElementById('menu-container')) {
                             renderMenu();
