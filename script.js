@@ -14,7 +14,7 @@ const FALLBACK_MENU_ITEMS = Object.freeze([
     { id: 1,  name: "Chicken Rice",      price: 90,  category: "Rice",        image: "chickenrice.webp", emoji: "🍛" },
     { id: 2,  name: "Egg Rice",          price: 80,  category: "Rice",        image: "eggrice.webp", emoji: "🍳" },
     { id: 3,  name: "Veg Rice",          price: 70,  category: "Rice",        image: "vegrice.webp", emoji: "🍚" },
-    { id: 4,  name: "Idly",              price: 10,  category: "Tiffin",      image: "https://www.foodie-trail.com/wp-content/uploads/2020/06/251fdbc0-57f6-41c3-a976-5192391cf040.jpg", emoji: "🥮" },
+    { id: 4,  name: "Idly",              price: 10,  category: "Tiffin",      image: "vada1.webp", emoji: "🥮" },
     { id: 5,  name: "Vada",              price: 10,  category: "Tiffin",      image: "", emoji: "🍩" },
     { id: 6,  name: "Dosa",              price: 20,  category: "Tiffin",      image: "dosa.webp", emoji: "🥞" },
     { id: 7,  name: "Plain Dosa",        price: 50,  category: "Tiffin",      image: "plain dosa .webp", emoji: "🥞" },
