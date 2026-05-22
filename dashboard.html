@@ -1684,11 +1684,9 @@
 
     <script src="admin-dashboard.js" defer></script>
 
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- REWARD ADMIN MODULE (AUTO-CONNECTED)                              -->
-    <!-- Automatically initializes when admin dashboard loads              -->
-    <!-- No manual setup needed - works immediately after file is added     -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- REWARD ADMIN MODULE (AUTO-CONNECTED) -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
     <script src="reward-admin.js" defer></script>
     <script defer>
         (function() {
@@ -1696,9 +1694,9 @@
                 if (window._rewardAdmin) {
                     try {
                         await window._rewardAdmin.init();
-                        console.log('[Dashboard] ✅ Reward admin ready');
+                        console.log('[Dashboard] ✅ Reward admin UI initialized');
                     } catch (err) {
-                        console.error('[Dashboard] ❌ Init error:', err);
+                        console.error('[Dashboard] ❌ Reward admin init error:', err);
                     }
                 }
             }
@@ -1710,15 +1708,10 @@
                     initRewardAdmin();
                 }
             }, 3000);
-            setTimeout(function() {
-                if (window._rewardAdmin && !document.getElementById('reward-admin-section')) {
-                    initRewardAdmin();
-                }
-            }, 6000);
         })();
     </script>
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- END REWARD ADMIN                                                 -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- END REWARD ADMIN -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
 </body>
 </html>
