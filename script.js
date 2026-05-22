@@ -14,8 +14,8 @@ const FALLBACK_MENU_ITEMS = Object.freeze([
     { id: 1,  name: "Chicken Rice",      price: 90,  category: "Rice",        image: "chickenrice.webp", emoji: "🍛" },
     { id: 2,  name: "Egg Rice",          price: 80,  category: "Rice",        image: "eggrice.webp", emoji: "🍳" },
     { id: 3,  name: "Veg Rice",          price: 70,  category: "Rice",        image: "vegrice.webp", emoji: "🍚" },
-    { id: 4,  name: "Idly",              price: 10,  category: "Tiffin",      image: "idly1.webp", emoji: "🥮" },
-    { id: 5,  name: "Vada",              price: 10,  category: "Tiffin",      image: "vada1.webp", emoji: "🍩" },
+    { id: 4,  name: "Idly",              price: 10,  category: "Tiffin",      image: "https://www.foodie-trail.com/wp-content/uploads/2020/06/251fdbc0-57f6-41c3-a976-5192391cf040.jpg", emoji: "🥮" },
+    { id: 5,  name: "Vada",              price: 10,  category: "Tiffin",      image: "vada.webp", emoji: "🍩" },
     { id: 6,  name: "Dosa",              price: 20,  category: "Tiffin",      image: "dosa.webp", emoji: "🥞" },
     { id: 7,  name: "Plain Dosa",        price: 50,  category: "Tiffin",      image: "plain dosa .webp", emoji: "🥞" },
     { id: 8,  name: "Set Dosa",          price: 50,  category: "Tiffin",      image: "set dosa.webp", emoji: "🥞" },
@@ -42,6 +42,27 @@ const FALLBACK_MENU_ITEMS = Object.freeze([
     { id: 29, name: "Egg Semiya",        price: 60,  category: "Semiya",      image: "egg-semiya.webp", emoji: "🍝" },
     { id: 30, name: "Veg Semiya",        price: 60,  category: "Semiya",      image: "veg-semiya.webp", emoji: "🍝" }
 ]);
+
+function getMenuNameKey(name) {
+    return String(name || '').trim().toLowerCase();
+}
+
+function dedupeMenuItemsForDisplay(items = []) {
+    const seen = new Map();
+    items.forEach(item => {
+        const key = getMenuNameKey(item.name);
+        if (!key) return;
+        if (!seen.has(key)) {
+            seen.set(key, item);
+            return;
+        }
+        const kept = seen.get(key);
+        const cId = Number(item.id) || 9999;
+        const kId = Number(kept.id) || 9999;
+        if (cId < kId) seen.set(key, item);
+    });
+    return Array.from(seen.values());
+}
 
 // ===== LOAD MENU FROM FIRESTORE =====
 async function loadMenuFromFirestore() {
@@ -81,9 +102,10 @@ async function loadMenuFromFirestore() {
             });
         });
 
-        if (items.length > 0) {
-            MENU_ITEMS = items;
-            console.log('[Menu] Loaded', items.length, 'items from Firestore');
+        const uniqueItems = dedupeMenuItemsForDisplay(items);
+        if (uniqueItems.length > 0) {
+            MENU_ITEMS = uniqueItems;
+            console.log('[Menu] Loaded', uniqueItems.length, 'unique items from Firestore');
         } else {
             console.warn('[Menu] No items in Firestore, using fallback');
             MENU_ITEMS = [...FALLBACK_MENU_ITEMS];
@@ -129,7 +151,8 @@ function setupMenuRealtimeListener(colRef, onSnapshot) {
                 _docId: docSnap.id
             });
         });
-        MENU_ITEMS = items.length > 0 ? items : [...FALLBACK_MENU_ITEMS];
+        const uniqueItems = dedupeMenuItemsForDisplay(items);
+        MENU_ITEMS = uniqueItems.length > 0 ? uniqueItems : [...FALLBACK_MENU_ITEMS];
         console.log('[Menu] Realtime update — items:', MENU_ITEMS.length);
         // Update UI and cart prices
         if (document.getElementById('menu-container')) renderMenu();
@@ -353,10 +376,6 @@ function showDeliveryResult(eligible, distOrMsg) {
 // ===================== GIFT BOX LOGIN TRACKING =====================
 
 function initGiftBoxWithLogin() {
-    const userPhone = safeJSONParse('giftUserPhone', null);
-    if (userPhone) {
-        loadUserGiftData(userPhone);
-    }
     updateGiftBadge();
 }
 
@@ -372,7 +391,7 @@ function showGiftPhoneLoginModal() {
             <h2>🎁 Unlock Your Daily Gifts!</h2>
             <p>Enter your phone number to check your rewards</p>
             <input type="tel" id="gift-phone-input" maxlength="10" placeholder="10-digit number" inputmode="numeric">
-            <button id="gift-phone-submit">Check My Rewards</button>
+            <button id="gift-phone-submit">Submit & View Gifts</button>
             <button id="gift-phone-cancel" style="width:100%;padding:12px;background:#f5f5f5;color:#666;border-radius:50px;font-weight:600;font-size:0.95rem;border:none;cursor:pointer;margin-top:-8px;"><i class="fas fa-times"></i> Cancel</button>
             <p class="gift-info-text">Spend ₹1000+ to unlock gifts • Spend ₹2000+ for bigger rewards!</p>
         </div>
@@ -404,58 +423,48 @@ function showGiftPhoneLoginModal() {
 async function verifyUserPhoneAndSetupGifts(phone, modal) {
     const btn = modal.querySelector('#gift-phone-submit');
     try {
-        let userData = null;
-        const db = await (typeof window.initFirebase === 'function' ? window.initFirebase() : null);
+        let userData = { name: 'Customer', totalSpent: 0, eligible: false };
 
-        if (db) {
-            try {
-                const { collection, query, where, getDocs } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-                const q = query(collection(db, "orders"), where("customerMobile", "==", phone));
-                const snapshot = await getDocs(q);
-                let totalSpent = 0, customerName = '';
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    totalSpent += (data.totalAmount || 0);
-                    if (!customerName) customerName = data.customerName || '';
-                });
-                if (snapshot.size > 0) {
-                    userData = { name: customerName || 'Customer', totalSpent, eligible: totalSpent >= GIFT_CONFIG.TIER1_SPEND };
-                }
-            } catch(e) {
-                console.error('[Gift] Firebase query error:', e);
-                userData = checkLocalOrders(phone);
-            }
+        if (window._giftRewardSystem && typeof window._giftRewardSystem.getEligibility === 'function') {
+            await window._giftRewardSystem.init();
+            const eligibility = await window._giftRewardSystem.getEligibility(phone);
+            userData = {
+                name: eligibility.customerName || 'Customer',
+                totalSpent: eligibility.totalAmount || 0,
+                eligible: (eligibility.totalAmount || 0) >= GIFT_CONFIG.TIER1_SPEND,
+                eligibility: eligibility
+            };
         } else {
-            userData = checkLocalOrders(phone);
+            const local = checkLocalOrders(phone);
+            if (local) userData = local;
         }
 
-        if (btn) { btn.disabled = false; btn.textContent = 'Check My Rewards'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Submit & View Gifts'; }
 
-        if (userData && userData.totalSpent > 0) {
-            safeJSONSet('giftUserPhone', phone);
-            safeJSONSet('giftUserName', userData.name);
-            safeJSONSet('giftUserSpent', userData.totalSpent);
-            modal.remove();
-            showRewardStatusCard(userData, phone);
-            loadUserGiftData(phone);
-        } else {
-            showNotEligibleCard(modal, phone, userData);
-        }
+        safeJSONSet('giftUserPhone', phone);
+        safeJSONSet('giftUserName', userData.name);
+        safeJSONSet('giftUserSpent', userData.totalSpent);
+        modal.remove();
+        await openGiftBoxForUser(phone);
     } catch(e) {
         console.error('[Gift] Verify error:', e);
-        if (btn) { btn.disabled = false; btn.textContent = 'Check My Rewards'; }
-        const userData = checkLocalOrders(phone);
-        if (userData && userData.totalSpent > 0) {
-            safeJSONSet('giftUserPhone', phone);
-            safeJSONSet('giftUserName', userData.name);
-            safeJSONSet('giftUserSpent', userData.totalSpent);
-            modal.remove();
-            showRewardStatusCard(userData, phone);
-            loadUserGiftData(phone);
-        } else {
-            showNotEligibleCard(modal, phone, null);
-        }
+        if (btn) { btn.disabled = false; btn.textContent = 'Submit & View Gifts'; }
+        showToast('Could not load gift data. Try again.');
     }
+}
+
+async function openGiftBoxForUser(phone) {
+    const wrapper = document.getElementById('gift-box-wrapper');
+    if (!wrapper) return;
+
+    giftBoxVisible = true;
+    wrapper.classList.add('show');
+    wrapper.style.display = 'block';
+
+    await loadUserGiftData(phone);
+    renderGiftBox();
+    updateGiftBadge();
+    setTimeout(() => wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
 }
 
 function checkLocalOrders(phone) {
@@ -535,14 +544,48 @@ function showNotEligibleCard(modal, phone, user) {
     modal.querySelector('.gift-phone-login-container').appendChild(msg);
 }
 
-function loadUserGiftData(phone) {
-    const userName  = safeJSONParse('giftUserName', 'User');
-    const totalSpent = safeJSONParse('giftUserSpent', 0);
-    safeJSONSet(GIFT_CONFIG.USER_KEY, { phone, name: userName, totalSpent, firstVisit: new Date().toISOString(), lastVisit: new Date().toISOString() });
-    loadGiftBoxState();
-    updateGiftBadge();
-    renderGiftBox();
-    console.log(`[GiftBox] Logged in: ${userName} | Phone: ${phone} | Spent: ₹${totalSpent}`);
+async function loadUserGiftData(phone) {
+    const userName = safeJSONParse('giftUserName', 'Customer');
+    let totalSpent = safeJSONParse('giftUserSpent', 0);
+    let claimStatus = 'none';
+
+    loadGiftBoxState(phone);
+
+    if (window._giftRewardSystem) {
+        try {
+            await window._giftRewardSystem.init();
+            if (typeof window._giftRewardSystem.syncProgress === 'function') {
+                const sync = await window._giftRewardSystem.syncProgress(phone, giftBoxState);
+                if (sync.state) {
+                    giftBoxState.openedDays = [...new Set(sync.state.openedDays || [])].sort((a, b) => a - b);
+                    giftBoxState.couponClaimed = sync.state.couponClaimed === true;
+                    giftBoxState.claimStatus = sync.state.claimStatus || 'none';
+                    claimStatus = giftBoxState.claimStatus;
+                }
+            }
+            const eligibility = await window._giftRewardSystem.getEligibility(phone);
+            if (eligibility) {
+                totalSpent = eligibility.totalAmount || totalSpent;
+                giftBoxState.openedDays = [...new Set(eligibility.openedDays || giftBoxState.openedDays || [])].sort((a, b) => a - b);
+                giftBoxState.couponClaimed = eligibility.couponClaimed === true;
+                giftBoxState.claimStatus = eligibility.claimStatus || giftBoxState.claimStatus || 'none';
+                giftBoxState.totalSpent = totalSpent;
+                if (eligibility.cycleStart) {
+                    giftBoxState.cycleStartDate = eligibility.cycleStart + 'T00:00:00.000Z';
+                }
+                claimStatus = giftBoxState.claimStatus;
+                safeJSONSet('giftUserSpent', totalSpent);
+                if (eligibility.customerName) safeJSONSet('giftUserName', eligibility.customerName);
+            }
+        } catch (e) {
+            console.warn('[GiftBox] Firebase sync skipped:', e);
+        }
+    }
+
+    giftBoxState.claimStatus = claimStatus;
+    safeJSONSet(GIFT_CONFIG.USER_KEY, { phone, name: userName, totalSpent, lastVisit: new Date().toISOString() });
+    saveGiftBoxState(phone);
+    console.log(`[GiftBox] Synced: ${userName} | ${phone} | Spent ₹${totalSpent} | Days ${giftBoxState.openedDays.length}/10`);
 }
 
 function updateGiftBadge() {
@@ -562,21 +605,7 @@ function updateGiftBadge() {
 }
 
 function toggleGiftBox() {
-    const userPhone = safeJSONParse('giftUserPhone', null);
-    if (!userPhone) { showGiftPhoneLoginModal(); return; }
-    const wrapper = document.getElementById('gift-box-wrapper');
-    if (!wrapper) return;
-    giftBoxVisible = !giftBoxVisible;
-    if (giftBoxVisible) {
-        wrapper.classList.add('show');
-        wrapper.style.display = 'block';
-        setTimeout(() => wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-    } else {
-        wrapper.classList.remove('show');
-        wrapper.style.display = 'none';
-    }
-    renderGiftBox();
-    updateGiftBadge();
+    showGiftPhoneLoginModal();
 }
 
 // ===================== MENU RENDERING =====================
@@ -1409,17 +1438,26 @@ function renderOrderHistory() {
 // - Gift box hidden by default - requires phone login to unlock view
 // - Eligibility verified against order database before showing UI
 
-function loadGiftBoxState() {
-    giftBoxState = safeJSONParse(GIFT_CONFIG.STORAGE_KEY, null);
+function getGiftStorageKey(phone) {
+    const clean = String(phone || '').replace(/\D/g, '');
+    return clean ? `${GIFT_CONFIG.STORAGE_KEY}_${clean}` : GIFT_CONFIG.STORAGE_KEY;
+}
+
+function loadGiftBoxState(phone) {
+    const storageKey = getGiftStorageKey(phone || safeJSONParse('giftUserPhone', null));
+    giftBoxState = safeJSONParse(storageKey, null);
     if (giftBoxState && giftBoxState.cycleStartDate) {
         const now      = new Date();
-        const lastDate = new Date(giftBoxState.cycleStartDate);
-        const daysDiff = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
-        if (daysDiff >= GIFT_CONFIG.CYCLE_DAYS) giftBoxState = createNewCycle();
+        const start    = new Date(giftBoxState.cycleStartDate);
+        const daysDiff = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+        if (daysDiff >= GIFT_CONFIG.CYCLE_DAYS) {
+            giftBoxState = createNewCycle();
+            showToast('🎁 New 10-day gift cycle started! Day 1 is open.');
+        }
     } else {
         giftBoxState = createNewCycle();
     }
-    saveGiftBoxState();
+    saveGiftBoxState(phone);
     return giftBoxState;
 }
 
@@ -1429,18 +1467,23 @@ function createNewCycle() {
         openedDays:     [],
         totalSpent:     0,
         couponClaimed:  false,
+        claimStatus:    'none',
         lastOpenedDate: null
     };
 }
 
-function saveGiftBoxState() { safeJSONSet(GIFT_CONFIG.STORAGE_KEY, giftBoxState); }
+function saveGiftBoxState(phone) {
+    const storageKey = getGiftStorageKey(phone || safeJSONParse('giftUserPhone', null));
+    safeJSONSet(storageKey, giftBoxState);
+}
 
 function getCurrentDay() {
     if (!giftBoxState || !giftBoxState.cycleStartDate) return 1;
     const now   = new Date();
     const start = new Date(giftBoxState.cycleStartDate);
     const diff  = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-    return Math.min(diff + 1, GIFT_CONFIG.CYCLE_DAYS);
+    if (diff >= GIFT_CONFIG.CYCLE_DAYS) return 1;
+    return diff + 1;
 }
 
 function canOpenToday() {
@@ -1453,35 +1496,69 @@ function canOpenToday() {
 }
 
 function updateSpendTracking(amount) {
-    if (!giftBoxState) loadGiftBoxState();
+    if (!giftBoxState) loadGiftBoxState(safeJSONParse('giftUserPhone', null));
     if (!giftBoxState) return;
     giftBoxState.totalSpent = (giftBoxState.totalSpent || 0) + amount;
-    saveGiftBoxState();
+    saveGiftBoxState(safeJSONParse('giftUserPhone', null));
     updateGiftBadge();
 }
 
 function checkCouponEligibility() {
     if (!giftBoxState || !giftBoxState.openedDays) return 0;
+    if (giftBoxState.couponClaimed || giftBoxState.claimStatus === 'pending' || giftBoxState.claimStatus === 'approved') return 0;
     const allDaysOpened = giftBoxState.openedDays.length >= GIFT_CONFIG.CYCLE_DAYS;
-    if (!allDaysOpened || giftBoxState.couponClaimed) return 0;
+    if (!allDaysOpened) return 0;
     if (giftBoxState.totalSpent >= GIFT_CONFIG.TIER2_SPEND) return GIFT_CONFIG.TIER2_VALUE;
     if (giftBoxState.totalSpent >= GIFT_CONFIG.TIER1_SPEND) return GIFT_CONFIG.TIER1_VALUE;
     return 0;
 }
 
-function openCouponModal() {
-    if (!giftBoxState) loadGiftBoxState();
-    const couponValue = checkCouponEligibility();
-    if (!couponValue) {
-        showToast('No coupon is available yet. Open all gift days and reach the spending goal.');
+async function submitCouponClaim() {
+    const phone = safeJSONParse('giftUserPhone', null);
+    const name = safeJSONParse('giftUserName', 'Customer');
+    if (!phone) {
+        showGiftPhoneLoginModal();
         return;
     }
 
-    giftBoxState.couponClaimed = true;
-    saveGiftBoxState();
-    renderGiftBox();
-    updateGiftBadge();
-    showToast(`🎉 ₹${couponValue} coupon claimed! Use it on your next order.`);
+    const couponValue = checkCouponEligibility();
+    if (!couponValue) {
+        if (giftBoxState?.claimStatus === 'pending') {
+            showToast('Coupon already sent to admin. Please wait for approval.');
+        } else {
+            showToast('Open all 10 gift days and spend ₹1000+ to claim coupon.');
+        }
+        return;
+    }
+
+    const claimBtn = document.getElementById('btn-claim-coupon');
+    if (claimBtn) {
+        claimBtn.disabled = true;
+        claimBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending to admin…';
+    }
+
+    try {
+        if (!window._giftRewardSystem || typeof window._giftRewardSystem.claimCoupon !== 'function') {
+            throw new Error('Reward system not ready');
+        }
+        await window._giftRewardSystem.init();
+        const result = await window._giftRewardSystem.claimCoupon(phone, name);
+
+        if (result.success) {
+            giftBoxState.couponClaimed = true;
+            giftBoxState.claimStatus = 'pending';
+            saveGiftBoxState(phone);
+            showToast('✅ ' + (result.message || `₹${result.couponValue} coupon sent to admin!`));
+        } else {
+            showToast('❌ ' + (result.error || 'Claim failed'));
+        }
+    } catch (err) {
+        console.error('[Gift] Claim error:', err);
+        showToast('❌ Could not send claim. Try again.');
+    } finally {
+        renderGiftBox();
+        updateGiftBadge();
+    }
 }
 
 // ===================== RENDER GIFT BOX (ONLY SHOWS DAYS 1 TO CURRENT DAY) =====================
@@ -1489,14 +1566,18 @@ function openCouponModal() {
 function renderGiftBox() {
     const container = document.getElementById('gift-box-container');
     if (!container) return;
-    if (!giftBoxState) loadGiftBoxState();
+    if (!giftBoxState) loadGiftBoxState(safeJSONParse('giftUserPhone', null));
     if (!giftBoxState) return;
 
+    const phone = safeJSONParse('giftUserPhone', '');
+    const userName = safeJSONParse('giftUserName', 'Customer');
     const currentDay  = getCurrentDay();
     const canOpen     = canOpenToday();
     const couponValue = checkCouponEligibility();
     const daysRemaining = GIFT_CONFIG.CYCLE_DAYS - currentDay;
     const daysOpened = giftBoxState.openedDays.length;
+    const claimPending = giftBoxState.claimStatus === 'pending';
+    const claimApproved = giftBoxState.claimStatus === 'approved';
 
     // Rewards for each day
     const rewards = [
@@ -1519,17 +1600,20 @@ function renderGiftBox() {
             <span class="gift-progress">Day ${currentDay}/10</span>
         </div>`;
 
-    // Tracking info box - shows progress and remaining days
     html += `<div class="gift-tracking-info" style="background:linear-gradient(135deg,#fff3e0,#ffe0b2);border:2px dashed #ff9800;border-radius:12px;padding:14px;margin-bottom:14px;text-align:center">
+        <div style="font-size:0.9rem;color:#333;margin-bottom:6px"><strong>${userName}</strong> • 📱 ${phone}</div>
         <div style="font-size:1rem;color:#e65100;font-weight:700;margin-bottom:8px">
             📅 Day ${currentDay} of 10 • ${daysRemaining} days remaining
         </div>
         <div style="font-size:0.85rem;color:#666;line-height:1.6">
-            ✅ ${daysOpened} days opened • ${canOpen ? '🎁 You can open today!' : '⏳ Come back tomorrow'}
+            ✅ ${daysOpened}/10 days opened • ${canOpen ? '🎁 Open today\'s box!' : '⏳ Come back tomorrow'}
         </div>
         <div style="font-size:0.8rem;color:#888;margin-top:6px">
-            💰 Total Spent: ₹${giftBoxState.totalSpent} | Need ₹${Math.max(0, GIFT_CONFIG.TIER1_SPEND - giftBoxState.totalSpent)} more for ₹50 coupon
+            💰 Cycle spend: <strong>₹${giftBoxState.totalSpent || 0}</strong>
+            ${giftBoxState.totalSpent >= GIFT_CONFIG.TIER1_SPEND ? ' • Coupon tier unlocked' : ` • Need ₹${Math.max(0, GIFT_CONFIG.TIER1_SPEND - (giftBoxState.totalSpent || 0))} more`}
         </div>
+        ${claimPending ? '<div style="margin-top:8px;font-size:0.85rem;color:#92400e;font-weight:700">⏳ Coupon sent to admin — waiting approval</div>' : ''}
+        ${claimApproved ? '<div style="margin-top:8px;font-size:0.85rem;color:#166534;font-weight:700">✅ Coupon approved by admin!</div>' : ''}
     </div>`;
 
     // Show ALL 10 days grid (1-10 always visible for count tracking)
@@ -1571,11 +1655,15 @@ function renderGiftBox() {
     // Status text
     html += `<div class="gift-status-text">${getGiftStatusText()}</div>`;
 
-    // Spending-based coupon section (only if eligible)
-    if (couponValue > 0) {
+    if (claimPending) {
+        html += `<div class="coupon-section" style="background:#fff8e1;border-color:#ff9800">
+            <div class="coupon-banner"><i class="fas fa-hourglass-half"></i><span>Coupon ₹${giftBoxState.totalSpent >= GIFT_CONFIG.TIER2_SPEND ? 100 : 50} — Admin notified</span></div>
+            <p style="padding:12px;text-align:center;font-size:0.9rem;color:#666">Hotel will verify and give your free food reward.</p>
+        </div>`;
+    } else if (couponValue > 0) {
         html += `<div class="coupon-section">
-            <div class="coupon-banner"><i class="fas fa-ticket-alt"></i><span>🎉 Congratulations! You unlocked free food worth ₹${couponValue}!</span></div>
-            <button class="btn-claim-coupon" id="btn-claim-coupon"><i class="fas fa-gift"></i> Claim Your Free Food (up to ₹${couponValue})</button>
+            <div class="coupon-banner"><i class="fas fa-ticket-alt"></i><span>🎉 Day 10 complete! Claim ₹${couponValue} free food — sent to admin</span></div>
+            <button class="btn-claim-coupon" id="btn-claim-coupon"><i class="fas fa-gift"></i> Claim Coupon (₹${couponValue}) — Notify Admin</button>
         </div>`;
     } else {
         // Show spending progress
@@ -1603,7 +1691,7 @@ function renderGiftBox() {
     // Coupon claim handler
     const claimBtn = container.querySelector('#btn-claim-coupon');
     if (claimBtn) {
-        claimBtn.addEventListener('click', () => openCouponModal());
+        claimBtn.addEventListener('click', () => submitCouponClaim());
     }
 }
 
@@ -1635,14 +1723,30 @@ function getGiftStatusText() {
     return status;
 }
 
-function handleGiftBoxClick(day) {
+async function handleGiftBoxClick(day) {
+    const phone = safeJSONParse('giftUserPhone', null);
+    if (!phone) {
+        showGiftPhoneLoginModal();
+        return;
+    }
     if (!giftBoxState || !canOpenToday() || day !== getCurrentDay()) {
         showToast(day < getCurrentDay() ? 'This day has passed! Open today\'s box.' : 'Come back tomorrow!');
         return;
     }
-    giftBoxState.openedDays.push(day);
+
+    if (window._giftRewardSystem && typeof window._giftRewardSystem.openGiftDay === 'function') {
+        const result = await window._giftRewardSystem.openGiftDay(phone, day);
+        if (!result.success) {
+            showToast(result.error || 'Could not open gift');
+            return;
+        }
+        giftBoxState.openedDays = result.openedDays || giftBoxState.openedDays.concat(day);
+    } else {
+        giftBoxState.openedDays.push(day);
+    }
+
     giftBoxState.lastOpenedDate = new Date().toISOString();
-    saveGiftBoxState();
+    saveGiftBoxState(phone);
     showGiftReward(day);
     renderGiftBox();
     updateGiftBadge();
