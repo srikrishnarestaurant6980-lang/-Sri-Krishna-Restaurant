@@ -93,6 +93,202 @@ function safeJSONSet(key, val) {
     }
 }
 
+function normalizeCycleDateKey(value) {
+    if (!value) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+}
+
+function normalizeGiftDays(days) {
+    if (!Array.isArray(days)) return [];
+    return [...new Set(days
+        .map(day => Number(day))
+        .filter(day => Number.isInteger(day) && day >= 1 && day <= GIFT_CONFIG.CYCLE_DAYS)
+    )].sort((a, b) => a - b);
+}
+
+function normalizeGiftProgressState(data = {}) {
+    const couponClaimed = data.couponClaimed === true;
+    const claimStatus = couponClaimed
+        ? (data.claimStatus || 'pending')
+        : (data.claimStatus === 'approved' ? 'approved' : (data.claimStatus === 'rejected' ? 'rejected' : 'none'));
+
+    return {
+        openedDays: normalizeGiftDays(data.openedDays),
+        couponClaimed: couponClaimed,
+        claimStatus: claimStatus,
+        claimedClaimId: data.claimedClaimId || '',
+        claimedAt: data.claimedAt || null,
+        lastOpenedDate: data.lastOpenedDate || null
+    };
+}
+
+function getGiftStorageKey(mobileNumber) {
+    const cleanMobile = String(mobileNumber || '').replace(/\D/g, '');
+    return cleanMobile ? `${GIFT_CONFIG.STORAGE_KEY}_${cleanMobile}` : GIFT_CONFIG.STORAGE_KEY;
+}
+
+function getLocalGiftState(mobileNumber) {
+    const directState = safeJSONParse(getGiftStorageKey(mobileNumber), null);
+    if (directState) {
+        return normalizeGiftProgressState(directState);
+    }
+
+    const legacyState = safeJSONParse(GIFT_CONFIG.STORAGE_KEY, null);
+    if (legacyState) {
+        return normalizeGiftProgressState(legacyState);
+    }
+
+    return normalizeGiftProgressState();
+}
+
+function calculateCurrentGiftDay(cycleStartDate) {
+    const startKey = normalizeCycleDateKey(cycleStartDate);
+    if (!startKey) return 1;
+
+    const today = getIndiaTime();
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const start = new Date(`${startKey}T00:00:00`);
+    const current = new Date(`${todayKey}T00:00:00`);
+    const diff = Math.floor((current - start) / (1000 * 60 * 60 * 24));
+
+    return Math.min(Math.max(diff + 1, 1), GIFT_CONFIG.CYCLE_DAYS);
+}
+
+function buildGiftReason(totalAmount, tier, couponValue, progressState) {
+    if (progressState.claimStatus === 'approved') {
+        return `₹${couponValue} reward already approved.`;
+    }
+
+    if (progressState.claimStatus === 'pending' || progressState.couponClaimed) {
+        return `₹${couponValue} claim submitted. Admin verification pending.`;
+    }
+
+    if (!tier) {
+        return `Spend ₹${Math.max(0, GIFT_CONFIG.TIER1_SPEND - totalAmount)} more to unlock`;
+    }
+
+    const remainingGiftDays = Math.max(0, GIFT_CONFIG.CYCLE_DAYS - progressState.openedDays.length);
+    if (remainingGiftDays > 0) {
+        return `Open ${remainingGiftDays} more gift day${remainingGiftDays === 1 ? '' : 's'} to claim your ₹${couponValue} reward`;
+    }
+
+    return `₹${couponValue} coupon available!`;
+}
+
+async function saveGiftProgressState(mobileNumber, partialState) {
+    const db = await initRewardDB();
+    if (!db || !isValidIndianMobile(mobileNumber)) {
+        return { success: false };
+    }
+
+    try {
+        const { doc, setDoc, serverTimestamp } =
+            await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+
+        const cleanMobile = String(mobileNumber).replace(/\D/g, '');
+        const cycleRef = doc(db, 'rewards_cycles', cleanMobile);
+        const normalizedState = normalizeGiftProgressState(partialState);
+
+        await setDoc(cycleRef, {
+            openedDays: normalizedState.openedDays,
+            couponClaimed: normalizedState.couponClaimed,
+            claimStatus: normalizedState.claimStatus,
+            claimedClaimId: normalizedState.claimedClaimId,
+            claimedAt: normalizedState.claimedAt,
+            lastOpenedDate: normalizedState.lastOpenedDate,
+            lastUpdated: serverTimestamp()
+        }, { merge: true });
+
+        return { success: true, state: normalizedState };
+    } catch (err) {
+        console.error('[GiftReward] Save progress error:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+async function syncGiftProgressState(mobileNumber, localState = null) {
+    const db = await initRewardDB();
+    if (!db || !isValidIndianMobile(mobileNumber)) {
+        return { success: false, state: normalizeGiftProgressState(localState || getLocalGiftState(mobileNumber)) };
+    }
+
+    try {
+        const { doc, getDoc, setDoc, serverTimestamp } =
+            await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+
+        const cleanMobile = String(mobileNumber).replace(/\D/g, '');
+        const cycleRef = doc(db, 'rewards_cycles', cleanMobile);
+        const cycleSnap = await getDoc(cycleRef);
+
+        if (!cycleSnap.exists()) {
+            return { success: false, state: normalizeGiftProgressState(localState || getLocalGiftState(cleanMobile)) };
+        }
+
+        const remoteData = cycleSnap.data();
+        const remoteState = normalizeGiftProgressState(remoteData);
+        const normalizedLocal = normalizeGiftProgressState(localState || getLocalGiftState(cleanMobile));
+        const remoteCycleKey = normalizeCycleDateKey(remoteData.cycleStart);
+        const localCycleKey = normalizeCycleDateKey(localState && localState.cycleStartDate);
+        const sameCycle = !localCycleKey || !remoteCycleKey || localCycleKey === remoteCycleKey;
+        const mergedDays = sameCycle
+            ? normalizeGiftDays(remoteState.openedDays.concat(normalizedLocal.openedDays))
+            : remoteState.openedDays;
+        const mergedCouponClaimed = remoteState.couponClaimed || normalizedLocal.couponClaimed;
+        const latestOpenedDate = [remoteState.lastOpenedDate, normalizedLocal.lastOpenedDate]
+            .filter(Boolean)
+            .sort()
+            .pop() || null;
+        const mergedState = normalizeGiftProgressState({
+            openedDays: mergedDays,
+            couponClaimed: mergedCouponClaimed,
+            claimStatus: remoteState.claimStatus !== 'none'
+                ? remoteState.claimStatus
+                : (mergedCouponClaimed ? 'pending' : normalizedLocal.claimStatus),
+            claimedClaimId: remoteState.claimedClaimId || normalizedLocal.claimedClaimId || '',
+            claimedAt: remoteState.claimedAt || normalizedLocal.claimedAt || null,
+            lastOpenedDate: latestOpenedDate
+        });
+
+        const needsWrite =
+            mergedState.couponClaimed !== remoteState.couponClaimed ||
+            mergedState.claimStatus !== remoteState.claimStatus ||
+            mergedState.claimedClaimId !== remoteState.claimedClaimId ||
+            mergedState.claimedAt !== remoteState.claimedAt ||
+            mergedState.lastOpenedDate !== remoteState.lastOpenedDate ||
+            JSON.stringify(mergedState.openedDays) !== JSON.stringify(remoteState.openedDays);
+
+        if (needsWrite) {
+            await setDoc(cycleRef, {
+                openedDays: mergedState.openedDays,
+                couponClaimed: mergedState.couponClaimed,
+                claimStatus: mergedState.claimStatus,
+                claimedClaimId: mergedState.claimedClaimId,
+                claimedAt: mergedState.claimedAt,
+                lastOpenedDate: mergedState.lastOpenedDate,
+                lastUpdated: serverTimestamp()
+            }, { merge: true });
+        }
+
+        return {
+            success: true,
+            state: {
+                ...mergedState,
+                totalAmount: Number(remoteData.totalAmount) || 0,
+                cycleStart: remoteData.cycleStart || '',
+                cycleEnd: remoteData.cycleEnd || '',
+                daysRemaining: calculateDaysRemaining(remoteData.cycleEnd),
+                customerName: remoteData.customerName || 'Customer'
+            }
+        };
+    } catch (err) {
+        console.error('[GiftReward] Sync progress error:', err);
+        return { success: false, state: normalizeGiftProgressState(localState || getLocalGiftState(mobileNumber)) };
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // CORE FUNCTIONS (Database Storage)
 // ═══════════════════════════════════════════════════════════════
@@ -156,6 +352,8 @@ async function updateGiftCycle(mobile, purchaseAmount, customerName) {
 
         const today = getIndiaTime();
         let cycleStart, cycleEnd, totalAmount;
+        let resetProgress = false;
+        let currentProgress = normalizeGiftProgressState();
 
         if (!cycleSnap.exists()) {
             // New cycle
@@ -164,8 +362,10 @@ async function updateGiftCycle(mobile, purchaseAmount, customerName) {
             endDate.setDate(endDate.getDate() + (GIFT_CONFIG.CYCLE_DAYS - 1));
             cycleEnd = formatDateIST(endDate);
             totalAmount = purchaseAmount;
+            resetProgress = true;
         } else {
             const existing = cycleSnap.data();
+            currentProgress = normalizeGiftProgressState(existing);
             const cycleEndDate = new Date(existing.cycleEnd + 'T23:59:59');
 
             if (today <= cycleEndDate) {
@@ -180,10 +380,11 @@ async function updateGiftCycle(mobile, purchaseAmount, customerName) {
                 newEnd.setDate(newEnd.getDate() + (GIFT_CONFIG.CYCLE_DAYS - 1));
                 cycleEnd = formatDateIST(newEnd);
                 totalAmount = purchaseAmount;
+                resetProgress = true;
             }
         }
 
-        await setDoc(cycleRef, {
+        const cycleData = {
             mobile: mobile,
             customerName: customerName || 'Customer',
             cycleStart: cycleStart,
@@ -191,7 +392,29 @@ async function updateGiftCycle(mobile, purchaseAmount, customerName) {
             totalAmount: totalAmount,
             daysRemaining: calculateDaysRemaining(cycleEnd),
             lastUpdated: serverTimestamp()
-        }, { merge: true });
+        };
+
+        if (resetProgress) {
+            Object.assign(cycleData, {
+                openedDays: [],
+                couponClaimed: false,
+                claimStatus: 'none',
+                claimedClaimId: '',
+                claimedAt: null,
+                lastOpenedDate: null
+            });
+        } else {
+            Object.assign(cycleData, {
+                openedDays: currentProgress.openedDays,
+                couponClaimed: currentProgress.couponClaimed,
+                claimStatus: currentProgress.claimStatus,
+                claimedClaimId: currentProgress.claimedClaimId,
+                claimedAt: currentProgress.claimedAt,
+                lastOpenedDate: currentProgress.lastOpenedDate
+            });
+        }
+
+        await setDoc(cycleRef, cycleData, { merge: true });
 
     } catch (err) {
         console.error('[GiftReward] Cycle update error:', err);
@@ -221,13 +444,26 @@ async function getGiftEligibility(mobileNumber) {
                 totalAmount: 0,
                 daysRemaining: GIFT_CONFIG.CYCLE_DAYS,
                 tier: null,
-                couponValue: 0
+                couponValue: 0,
+                spendEligible: false,
+                openedDays: [],
+                daysOpened: 0,
+                remainingGiftDays: GIFT_CONFIG.CYCLE_DAYS,
+                allDaysOpened: false,
+                claimReady: false,
+                couponClaimed: false,
+                claimStatus: 'none',
+                currentDay: 1
             };
         }
 
         const data = cycleSnap.data();
         const totalAmount = data.totalAmount || 0;
         const daysRemaining = calculateDaysRemaining(data.cycleEnd);
+        const progressState = normalizeGiftProgressState(data);
+        const daysOpened = progressState.openedDays.length;
+        const remainingGiftDays = Math.max(0, GIFT_CONFIG.CYCLE_DAYS - daysOpened);
+        const currentDay = calculateCurrentGiftDay(data.cycleStart);
 
         if (daysRemaining <= 0) {
             return { 
@@ -238,7 +474,16 @@ async function getGiftEligibility(mobileNumber) {
                 tier: null,
                 couponValue: 0,
                 cycleStart: data.cycleStart,
-                cycleEnd: data.cycleEnd
+                cycleEnd: data.cycleEnd,
+                spendEligible: false,
+                openedDays: [],
+                daysOpened: 0,
+                remainingGiftDays: GIFT_CONFIG.CYCLE_DAYS,
+                allDaysOpened: false,
+                claimReady: false,
+                couponClaimed: false,
+                claimStatus: 'none',
+                currentDay: 1
             };
         }
 
@@ -262,6 +507,18 @@ async function getGiftEligibility(mobileNumber) {
             cycleStart: data.cycleStart,
             cycleEnd: data.cycleEnd,
             customerName: data.customerName,
+            spendEligible: tier !== null,
+            openedDays: progressState.openedDays,
+            daysOpened: daysOpened,
+            remainingGiftDays: remainingGiftDays,
+            allDaysOpened: daysOpened >= GIFT_CONFIG.CYCLE_DAYS,
+            claimReady: tier !== null && daysOpened >= GIFT_CONFIG.CYCLE_DAYS && !progressState.couponClaimed && progressState.claimStatus !== 'approved',
+            couponClaimed: progressState.couponClaimed,
+            claimStatus: progressState.claimStatus,
+            claimedClaimId: progressState.claimedClaimId,
+            claimedAt: progressState.claimedAt,
+            lastOpenedDate: progressState.lastOpenedDate,
+            currentDay: currentDay,
             reason: tier ? `₹${couponValue} coupon available!` : `Spend ₹${GIFT_CONFIG.TIER1_SPEND - totalAmount} more to unlock`
         };
 
@@ -298,7 +555,50 @@ function getLocalGiftEligibility(mobile) {
     };
 }
 
-// ===== CLAIM COUPON =====
+// ===== OPEN GIFT DAY (sync to Firebase) =====
+async function openGiftDay(mobileNumber, day) {
+    const db = await initRewardDB();
+    if (!db) {
+        return { success: false, error: 'System not ready' };
+    }
+
+    const cleanMobile = String(mobileNumber).replace(/\D/g, '');
+    if (!isValidIndianMobile(cleanMobile)) {
+        return { success: false, error: 'Invalid mobile number' };
+    }
+
+    try {
+        const eligibility = await getGiftEligibility(cleanMobile);
+        const currentDay = eligibility.currentDay || 1;
+        const dayNum = Number(day);
+
+        if (dayNum !== currentDay) {
+            return { success: false, error: dayNum < currentDay ? 'This day has passed.' : 'Come back on the correct day.' };
+        }
+
+        const openedDays = normalizeGiftDays(eligibility.openedDays || []);
+        if (openedDays.includes(dayNum)) {
+            return { success: false, error: 'You already opened today\'s gift.' };
+        }
+
+        const mergedDays = normalizeGiftDays(openedDays.concat([dayNum]));
+        const saveResult = await saveGiftProgressState(cleanMobile, {
+            openedDays: mergedDays,
+            lastOpenedDate: getTodayDateIST()
+        });
+
+        if (!saveResult.success) {
+            return { success: false, error: 'Could not save gift progress' };
+        }
+
+        return { success: true, openedDays: mergedDays, currentDay: currentDay };
+    } catch (err) {
+        console.error('[GiftReward] Open day error:', err);
+        return { success: false, error: 'Could not open gift box' };
+    }
+}
+
+// ===== CLAIM COUPON (10th day — notifies admin) =====
 async function claimGiftCoupon(mobileNumber, customerName) {
     const db = await initRewardDB();
     if (!db) {
@@ -307,57 +607,64 @@ async function claimGiftCoupon(mobileNumber, customerName) {
 
     try {
         const eligibility = await getGiftEligibility(mobileNumber);
+        const cleanMobile = String(mobileNumber).replace(/\D/g, '');
 
-        if (!eligibility.eligible) {
-            return { success: false, error: eligibility.reason || 'Not eligible' };
+        if (!eligibility.claimReady) {
+            if (eligibility.couponClaimed || eligibility.claimStatus === 'pending') {
+                return { success: false, error: 'Coupon claim already sent to admin. Please wait for approval.' };
+            }
+            if (eligibility.claimStatus === 'approved') {
+                return { success: false, error: 'Your coupon was already approved!' };
+            }
+            const remaining = Math.max(0, GIFT_CONFIG.CYCLE_DAYS - (eligibility.daysOpened || 0));
+            if (remaining > 0) {
+                return { success: false, error: `Open ${remaining} more gift day(s) first.` };
+            }
+            return { success: false, error: eligibility.reason || 'Spend ₹1000+ in this cycle to unlock coupon.' };
         }
 
-        const { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } = 
+        const { doc, setDoc, serverTimestamp } =
             await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
 
-        const cleanMobile = String(mobileNumber).replace(/\D/g, '');
         const today = getTodayDateIST();
-
-        // Check for duplicate claim today
-        const claimsRef = collection(db, 'rewards_claims');
-        const q = query(claimsRef, where('mobile', '==', cleanMobile), where('claimDate', '==', today));
-        const existingClaims = await getDocs(q);
-
-        if (!existingClaims.empty) {
-            return { success: false, error: 'You already claimed today. Try tomorrow!' };
-        }
-
-        // Create claim
         const claimId = `claim_${cleanMobile}_${Date.now()}`;
         const claimRef = doc(db, 'rewards_claims', claimId);
 
         await setDoc(claimRef, {
             claimId: claimId,
             mobile: cleanMobile,
-            customerName: customerName || 'Customer',
+            customerName: customerName || eligibility.customerName || 'Customer',
             couponType: eligibility.tier,
             couponValue: eligibility.couponValue,
             totalAmount: eligibility.totalAmount,
+            daysOpened: eligibility.daysOpened || GIFT_CONFIG.CYCLE_DAYS,
             claimDate: today,
             claimTime: getIndiaTime().toISOString(),
             status: 'pending',
-            adminNotified: false,
+            source: 'gift_box_day10',
+            adminNotified: true,
             createdAt: serverTimestamp()
         });
 
-        // Notify admin
+        await saveGiftProgressState(cleanMobile, {
+            couponClaimed: true,
+            claimStatus: 'pending',
+            claimedClaimId: claimId,
+            claimedAt: getIndiaTime().toISOString()
+        });
+
         await notifyAdminOfGiftClaim(claimId, cleanMobile, customerName, eligibility);
 
         return {
             success: true,
             claimId: claimId,
             couponValue: eligibility.couponValue,
-            message: `₹${eligibility.couponValue} coupon claimed! Admin will verify.`
+            message: `₹${eligibility.couponValue} coupon sent to admin! They will verify and give you free food.`
         };
 
     } catch (err) {
         console.error('[GiftReward] Claim error:', err);
-        return { success: false, error: 'Could not process claim' };
+        return { success: false, error: err.message || 'Could not process claim' };
     }
 }
 
@@ -378,6 +685,8 @@ async function notifyAdminOfGiftClaim(claimId, mobile, customerName, eligibility
             couponType: eligibility.tier,
             couponValue: eligibility.couponValue,
             totalAmount: eligibility.totalAmount,
+            daysOpened: eligibility.daysOpened || GIFT_CONFIG.CYCLE_DAYS,
+            type: 'coupon_claim',
             notificationTime: getIndiaTime().toISOString(),
             read: false,
             createdAt: serverTimestamp()
@@ -654,6 +963,9 @@ window._giftRewardSystem = {
     init: initRewardDB,
     recordPurchase: recordGiftPurchase,
     getEligibility: getGiftEligibility,
+    openGiftDay: openGiftDay,
+    saveProgress: saveGiftProgressState,
+    syncProgress: syncGiftProgressState,
     claimCoupon: claimGiftCoupon,
     getTodayDate: getTodayDateIST,
     config: GIFT_CONFIG
