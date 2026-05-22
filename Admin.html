@@ -392,13 +392,15 @@
     </div>
     <!-- /login-wrapper -->
 
+    <script src="admin-config.js"></script>
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import {
             getAuth,
             signInWithEmailAndPassword,
-            onAuthStateChanged
+            onAuthStateChanged,
+            signOut
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -425,8 +427,11 @@
         // If already signed in → straight to dashboard
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             unsubscribe(); // run once
-            if (user) {
+            if (user && window.isAllowedAdmin && window.isAllowedAdmin(user)) {
                 window.location.replace('dashboard.html');
+            } else if (user) {
+                signOut(auth);
+                overlay.classList.remove('show');
             } else {
                 overlay.classList.remove('show');
             }
