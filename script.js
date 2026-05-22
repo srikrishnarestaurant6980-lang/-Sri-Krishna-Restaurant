@@ -1166,33 +1166,33 @@ function submitOrder() {
         }).catch(function(err) { console.error('Firebase save failed:', err); showToast('Saved locally (cloud failed)'); });
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // REWARD SYSTEM: AUTO-RECORD PURCHASE (Connected to reward-system.js)
-    // This sends order data to the reward tracking system automatically
-    // No manual setup needed - works immediately after files are added
-    // ═══════════════════════════════════════════════════════════════════
-    if (window._rewardSystem && order.id) {
+    // ═══════════════════════════════════════════════════════════════
+    // GIFT REWARD SYSTEM: RECORD PURCHASE (AUTO-CONNECTED)
+    // ═══════════════════════════════════════════════════════════════
+    if (window._giftRewardSystem && order.id) {
         try {
-            var rewardMobile = sessionStorage.getItem('rewardSessionMobile') || mobile;
+            var rewardMobile = sessionStorage.getItem('giftUserPhone') || mobile;
             if (rewardMobile && /^[6-9]\d{9}$/.test(rewardMobile)) {
-                window._rewardSystem.recordPurchase(rewardMobile, name, totalAmount, order.id)
+                window._giftRewardSystem.recordPurchase(rewardMobile, name, totalAmount, order.id)
                 .then(function(result) {
                     if (result.success) {
-                        console.log('[Reward] ✅ Purchase recorded:', { mobile: rewardMobile, amount: totalAmount });
+                        console.log('[GiftReward] ✅ Purchase recorded:', {
+                            mobile: rewardMobile, amount: totalAmount, orderId: order.id
+                        });
                     } else {
-                        console.warn('[Reward] ⚠️ Failed:', result.error);
+                        console.warn('[GiftReward] ⚠️ Recording failed:', result.error);
                     }
                 }).catch(function(err) {
-                    console.error('[Reward] ❌ Error:', err);
+                    console.error('[GiftReward] ❌ Recording error:', err);
                 });
             }
         } catch (err) {
-            console.error('[Reward] ❌ Unexpected error:', err);
+            console.error('[GiftReward] ❌ Unexpected error:', err);
         }
     }
-    // ═══════════════════════════════════════════════════════════════════
-    // END REWARD SYSTEM
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════
+    // END GIFT REWARD SYSTEM
+    // ═══════════════════════════════════════════════════════════════
 
     if (typeof window.saveOrder === 'function') {
         window.saveOrder({
