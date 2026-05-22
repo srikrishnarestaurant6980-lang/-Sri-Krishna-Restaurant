@@ -12,7 +12,7 @@
 const REWARD_UI = {
     modalOpen: false,
     isProcessing: false,
-    sessionMobile: null
+    sessionMobile: nulla
 };
 
 // ===== CREATE & INJECT LOGIN MODAL =====
