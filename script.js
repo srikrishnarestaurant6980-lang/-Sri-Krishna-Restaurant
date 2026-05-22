@@ -5,7 +5,12 @@
 
 'use strict';
 
-const MENU_ITEMS = Object.freeze([
+// ===== MENU ITEMS — LOADED FROM FIRESTORE =====
+// Admin edits update Firestore directly; customer site reads from same source
+let MENU_ITEMS = [];
+let _menuLoaded = false;
+
+const FALLBACK_MENU_ITEMS = Object.freeze([
     { id: 1,  name: "Chicken Rice",      price: 90,  category: "Rice",        image: "chickenrice.webp", emoji: "🍛" },
     { id: 2,  name: "Egg Rice",          price: 80,  category: "Rice",        image: "eggrice.webp", emoji: "🍳" },
     { id: 3,  name: "Veg Rice",          price: 70,  category: "Rice",        image: "vegrice.webp", emoji: "🍚" },
@@ -37,6 +42,120 @@ const MENU_ITEMS = Object.freeze([
     { id: 29, name: "Egg Semiya",        price: 60,  category: "Semiya",      image: "egg-semiya.webp", emoji: "🍝" },
     { id: 30, name: "Veg Semiya",        price: 60,  category: "Semiya",      image: "veg-semiya.webp", emoji: "🍝" }
 ]);
+
+// ===== LOAD MENU FROM FIRESTORE =====
+async function loadMenuFromFirestore() {
+    try {
+        // Lazy-load Firebase if not already loaded
+        if (!window.db) {
+            if (typeof window.initFirebase === 'function') {
+                await window.initFirebase();
+            }
+        }
+
+        if (!window.db) {
+            console.warn('[Menu] Firebase not available, using fallback');
+            MENU_ITEMS = [...FALLBACK_MENU_ITEMS];
+            _menuLoaded = true;
+            return;
+        }
+
+        const { collection, getDocs, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+
+        const colRef = collection(window.db, 'menu_items');
+
+        // Initial load
+        const snap = await getDocs(colRef);
+        const items = [];
+        snap.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.active === false) return;
+            items.push({
+                id: data.id || 0,
+                name: data.name,
+                price: data.price,
+                category: data.category,
+                image: data.image || '',
+                emoji: data.emoji || '🍽️',
+                _docId: docSnap.id
+            });
+        });
+
+        if (items.length > 0) {
+            MENU_ITEMS = items;
+            console.log('[Menu] Loaded', items.length, 'items from Firestore');
+        } else {
+            console.warn('[Menu] No items in Firestore, using fallback');
+            MENU_ITEMS = [...FALLBACK_MENU_ITEMS];
+        }
+
+        _menuLoaded = true;
+
+        // Re-render if already rendered
+        if (document.getElementById('menu-container')) {
+            renderMenu();
+            updateCartPrices();
+        }
+
+        // Setup real-time updates so admin edits reflect here immediately
+        try {
+            setupMenuRealtimeListener(colRef, onSnapshot);
+        } catch (e) {
+            console.warn('[Menu] Realtime listener not available', e);
+        }
+
+    } catch (err) {
+        console.error('[Menu] Firestore load error:', err);
+        MENU_ITEMS = [...FALLBACK_MENU_ITEMS];
+        _menuLoaded = true;
+    }
+}
+
+// ===== REAL-TIME LISTENER =====
+function setupMenuRealtimeListener(colRef, onSnapshot) {
+    if (!colRef || !onSnapshot) return;
+    onSnapshot(colRef, (snapshot) => {
+        const items = [];
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.active === false) return;
+            items.push({
+                id: data.id || 0,
+                name: data.name,
+                price: data.price,
+                category: data.category,
+                image: data.image || '',
+                emoji: data.emoji || '🍽️',
+                _docId: docSnap.id
+            });
+        });
+        MENU_ITEMS = items.length > 0 ? items : [...FALLBACK_MENU_ITEMS];
+        console.log('[Menu] Realtime update — items:', MENU_ITEMS.length);
+        // Update UI and cart prices
+        if (document.getElementById('menu-container')) renderMenu();
+        updateCartPrices();
+    });
+}
+
+// ===== UPDATE CART PRICES WHEN MENU CHANGES =====
+function updateCartPrices() {
+    if (!cart || !cart.length || !MENU_ITEMS || !MENU_ITEMS.length) return;
+    let changed = false;
+    cart.forEach(c => {
+        const menuItem = MENU_ITEMS.find(m => m.id === c.id || m.name === c.name);
+        if (menuItem && menuItem.price !== c.price) {
+            c.price = menuItem.price;
+            changed = true;
+        }
+    });
+    if (changed) {
+        saveCart();
+        updateCartDisplay();
+    }
+}
+
+// ===== INIT: Load menu from Firestore =====
+loadMenuFromFirestore();
 
 const HOTEL_NAME = "Sri Krishna Hotel";
 const PHONE_NUMBER = "98433 36980";
@@ -123,7 +242,19 @@ function init() {
     loadCart();
     setupImgObserver();
     setupEventListeners();
-    requestAnimationFrame(() => { renderMenu(); updateCartDisplay(); });
+
+    // Wait for menu to load from Firestore before rendering
+    const renderWhenReady = () => {
+        if (_menuLoaded) {
+            renderMenu();
+            updateCartDisplay();
+        } else {
+            // Show skeleton while loading
+            requestAnimationFrame(renderWhenReady);
+        }
+    };
+    renderWhenReady();
+
     const idle = window.requestIdleCallback || (fn => setTimeout(fn, 50));
     idle(() => startHeroSlider());
     setTimeout(initGiftBoxWithLogin, 300);
@@ -981,8 +1112,8 @@ function submitOrder() {
 
     if (!name || !mobile || !table) { showToast('Please fill all required fields'); return; }
     if (!/^[6-9]\d{9}$/.test(mobile)) { showToast('Enter valid 10-digit mobile number (start with 6-9)'); return; }
-    if (name.length < 2 || !/^[\p{L}\s.'-]+$/u.test(name)) { showToast('Enter valid customer name'); return; }
-    if (table.length < 2 || !/^[\p{L}\p{N}\s,./#()'-]+$/u.test(table)) { showToast('Enter valid place or table details'); return; }
+    if (name.length < 2 || !/^[a-zA-ZÀ-ſ\s.'-]+$/.test(name)) { showToast('Enter valid customer name'); return; }
+    if (table.length < 2 || !/^[a-zA-Z0-9\s\u00C0-\u017F,./#()'-]+$/u.test(table)) { showToast('Enter valid place or table details'); return; }
 
     if (method === 'qr') {
         // For QR payment, just confirm they have paid
@@ -1034,6 +1165,34 @@ function submitOrder() {
             else { showToast('Order saved locally'); }
         }).catch(function(err) { console.error('Firebase save failed:', err); showToast('Saved locally (cloud failed)'); });
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // REWARD SYSTEM: AUTO-RECORD PURCHASE (Connected to reward-system.js)
+    // This sends order data to the reward tracking system automatically
+    // No manual setup needed - works immediately after files are added
+    // ═══════════════════════════════════════════════════════════════════
+    if (window._rewardSystem && order.id) {
+        try {
+            var rewardMobile = sessionStorage.getItem('rewardSessionMobile') || mobile;
+            if (rewardMobile && /^[6-9]\d{9}$/.test(rewardMobile)) {
+                window._rewardSystem.recordPurchase(rewardMobile, name, totalAmount, order.id)
+                .then(function(result) {
+                    if (result.success) {
+                        console.log('[Reward] ✅ Purchase recorded:', { mobile: rewardMobile, amount: totalAmount });
+                    } else {
+                        console.warn('[Reward] ⚠️ Failed:', result.error);
+                    }
+                }).catch(function(err) {
+                    console.error('[Reward] ❌ Error:', err);
+                });
+            }
+        } catch (err) {
+            console.error('[Reward] ❌ Unexpected error:', err);
+        }
+    }
+    // ═══════════════════════════════════════════════════════════════════
+    // END REWARD SYSTEM
+    // ═══════════════════════════════════════════════════════════════════
 
     if (typeof window.saveOrder === 'function') {
         window.saveOrder({
@@ -1252,7 +1411,7 @@ function renderOrderHistory() {
 
 function loadGiftBoxState() {
     giftBoxState = safeJSONParse(GIFT_CONFIG.STORAGE_KEY, null);
-    if (giftBoxState) {
+    if (giftBoxState && giftBoxState.cycleStartDate) {
         const now      = new Date();
         const lastDate = new Date(giftBoxState.cycleStartDate);
         const daysDiff = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
@@ -1277,6 +1436,7 @@ function createNewCycle() {
 function saveGiftBoxState() { safeJSONSet(GIFT_CONFIG.STORAGE_KEY, giftBoxState); }
 
 function getCurrentDay() {
+    if (!giftBoxState || !giftBoxState.cycleStartDate) return 1;
     const now   = new Date();
     const start = new Date(giftBoxState.cycleStartDate);
     const diff  = Math.floor((now - start) / (1000 * 60 * 60 * 24));
@@ -1284,6 +1444,7 @@ function getCurrentDay() {
 }
 
 function canOpenToday() {
+    if (!giftBoxState || !giftBoxState.openedDays) return false;
     const today      = getCurrentDay();
     if (today > GIFT_CONFIG.CYCLE_DAYS) return false;
     if (giftBoxState.openedDays.includes(today)) return false;
@@ -1293,18 +1454,34 @@ function canOpenToday() {
 
 function updateSpendTracking(amount) {
     if (!giftBoxState) loadGiftBoxState();
-    giftBoxState.totalSpent += amount;
+    if (!giftBoxState) return;
+    giftBoxState.totalSpent = (giftBoxState.totalSpent || 0) + amount;
     saveGiftBoxState();
-    // Don't auto-render - user must login again to see updated status
     updateGiftBadge();
 }
 
 function checkCouponEligibility() {
+    if (!giftBoxState || !giftBoxState.openedDays) return 0;
     const allDaysOpened = giftBoxState.openedDays.length >= GIFT_CONFIG.CYCLE_DAYS;
     if (!allDaysOpened || giftBoxState.couponClaimed) return 0;
     if (giftBoxState.totalSpent >= GIFT_CONFIG.TIER2_SPEND) return GIFT_CONFIG.TIER2_VALUE;
     if (giftBoxState.totalSpent >= GIFT_CONFIG.TIER1_SPEND) return GIFT_CONFIG.TIER1_VALUE;
     return 0;
+}
+
+function openCouponModal() {
+    if (!giftBoxState) loadGiftBoxState();
+    const couponValue = checkCouponEligibility();
+    if (!couponValue) {
+        showToast('No coupon is available yet. Open all gift days and reach the spending goal.');
+        return;
+    }
+
+    giftBoxState.couponClaimed = true;
+    saveGiftBoxState();
+    renderGiftBox();
+    updateGiftBadge();
+    showToast(`🎉 ₹${couponValue} coupon claimed! Use it on your next order.`);
 }
 
 // ===================== RENDER GIFT BOX (ONLY SHOWS DAYS 1 TO CURRENT DAY) =====================
@@ -1313,6 +1490,7 @@ function renderGiftBox() {
     const container = document.getElementById('gift-box-container');
     if (!container) return;
     if (!giftBoxState) loadGiftBoxState();
+    if (!giftBoxState) return;
 
     const currentDay  = getCurrentDay();
     const canOpen     = canOpenToday();
@@ -1430,10 +1608,11 @@ function renderGiftBox() {
 }
 
 function getGiftStatusText() {
+    if (!giftBoxState) return 'Loading...';
     const currentDay = getCurrentDay();
     const daysRemaining = GIFT_CONFIG.CYCLE_DAYS - currentDay;
-    const daysOpened = giftBoxState.openedDays.length;
-    const spent = giftBoxState.totalSpent;
+    const daysOpened = giftBoxState.openedDays ? giftBoxState.openedDays.length : 0;
+    const spent = giftBoxState.totalSpent || 0;
     const couponValue = checkCouponEligibility();
 
     if (couponValue) {
@@ -1457,7 +1636,7 @@ function getGiftStatusText() {
 }
 
 function handleGiftBoxClick(day) {
-    if (!canOpenToday() || day !== getCurrentDay()) {
+    if (!giftBoxState || !canOpenToday() || day !== getCurrentDay()) {
         showToast(day < getCurrentDay() ? 'This day has passed! Open today\'s box.' : 'Come back tomorrow!');
         return;
     }
@@ -1470,6 +1649,6 @@ function handleGiftBoxClick(day) {
 }
 
 function showGiftReward(day) {
-    // No daily rewards - only spending-based coupons
+    if (!day || isNaN(day)) return;
     showToast('Day ' + day + ' opened! Check your spending rewards below.');
 }
